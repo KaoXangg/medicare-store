@@ -1,0 +1,16 @@
+{
+  "name": "MediCare Store",
+  "short_name": "MediCare",
+  "description": "Premium medical ecommerce platform",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0EA5E9",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml"
+    }
+  ]
+}

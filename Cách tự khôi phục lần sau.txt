@@ -1,0 +1,47 @@
+Cách tự khôi phục lần sau
+Cách 1 — Script (nhanh nhất)
+Trong thư mục backend:
+
+cd c:\thietbiyte_shop\backend
+npm run unlock-admin
+Mở khóa email khác:
+
+npm run unlock-admin -- your-email@example.com
+Cách 2 — SQL trực tiếp (SSMS)
+Mở SSMS, chọn database MediCareStore, chạy:
+
+UPDATE Users
+SET IsActive = 1, Role = 'admin'
+WHERE Email = 'admin@medicarestore.com';
+Mở khóa mọi tài khoản admin:
+
+UPDATE Users SET IsActive = 1 WHERE Role = 'admin';
+Cách 3 — Tài khoản user khác còn admin
+Nếu còn admin khác chưa bị khóa: vào Admin → Người dùng → bấm Mở khóa cho tài khoản bị khóa.
+
+
+Chạy nhanh
+1. SQL Server — chạy database/schema.sql rồi database/seed.sql trong SSMS.
+
+2. Backend:
+
+
+cd c:\thietbiyte_shop\backend
+# Sửa .env: DB_PASSWORD, JWT_SECRET
+npm run seed
+
+3. Frontend:
+
+cd c:\thietbiyte_shop\frontend
+npm run dev
+URL	Mục đích
+http://localhost:5173	Cửa hàng
+http://localhost:5173/admin	Admin
+http://localhost:5000/api/health	Kiểm tra API
+Tài khoản demo
+Vai trò	Email	Mật khẩu
+Admin	admin@medicarestore.com	admin
+
+
+Mã giảm giá
+WELCOME10, MEDICARE50K, VIP15

@@ -1,0 +1,342 @@
+================================================================================
+  MEDICARE STORE - HUONG DAN CAI DAT TREN MAY MOI
+  Project: thietbiyte_shop (React + Node.js + SQL Server)
+================================================================================
+
+  >>> CAI NHANH: doc file CAI-DAT-NHANH.txt
+  >>> TU DONG:   double-click CAI-DAT.bat
+
+MUC LUC:
+  1. Yeu cau phan mem
+  2. Copy project sang may moi
+  3. Cai SQL Server & chay database (QUAN TRONG)
+  4. Cau hinh Backend (.env)
+  5. Cau hinh Frontend (.env)
+  6. Chay ung dung
+  7. Tai khoan demo
+  8. Cach doi cau hinh SQL theo tung may
+  9. Hai cach cai database (chon 1)
+ 10. Xu ly loi thuong gap
+
+
+================================================================================
+1. YEU CAU PHAN MEM
+================================================================================
+
+  - Node.js 18+ (khuyen dung 20 LTS hoac 22 LTS)
+    Kiem tra:  node -v
+                npm -v
+
+  - SQL Server 2019+ hoac SQL Server Express (mien phi)
+    Tai: https://www.microsoft.com/sql-server/sql-server-downloads
+
+  - SSMS (SQL Server Management Studio) hoac Azure Data Studio
+    Tai: https://learn.microsoft.com/sql/ssms/download-sql-server-management-studio-ssms
+
+  - Git (tuy chon, neu clone tu repo)
+
+
+================================================================================
+2. COPY PROJECT SANG MAY MOI
+================================================================================
+
+  Copy ca thu muc:  thietbiyte_shop\
+
+  CAN copy:
+    - backend\
+    - frontend\
+    - SQL\
+    - database\
+    - note.txt (file nay)
+
+  KHONG CAN copy (se cai lai):
+    - backend\node_modules\
+    - frontend\node_modules\
+    - node_modules\ (neu co o thu muc goc)
+
+  KHONG NEN copy (tao moi tu .env.example):
+    - backend\.env
+    - frontend\.env
+
+  NEN copy (neu da co anh upload):
+    - backend\uploads\
+
+
+================================================================================
+3. CAI SQL SERVER & CHAY DATABASE
+================================================================================
+
+  BUOC 3.1 - Cai SQL Server
+  -------------------------
+  - Cai SQL Server Express hoac Developer Edition
+  - Trong luc cai, chon "Mixed Mode Authentication"
+  - Dat mat khau cho user "sa" -> GHI NHOP mat khau nay (dung cho .env sau)
+
+  BUOC 3.2 - Bat dang nhap SQL Server (Mixed Mode)
+  -------------------------------------------------
+  1. Mo SSMS -> ket noi localhost
+  2. Click phai ten server -> Properties -> Security
+  3. Chon "SQL Server and Windows Authentication mode" -> OK
+  4. Restart SQL Server:
+       Mo PowerShell (Admin):
+       Restart-Service MSSQLSERVER
+       (Neu dung Express: Restart-Service MSSQL$SQLEXPRESS)
+
+  BUOC 3.3 - Chay file SQL ALL-IN-ONE (KHUYEN DUNG)
+  ---------------------------------------------------
+  File:  SQL\SQLQuery1.sql
+
+  File nay da bao gom TAT CA:
+    - Tao database MediCareStore
+    - Tat ca bang (Products, Orders, Users, ...)
+    - Wishlists          (yeu thich san pham)
+    - SiteSettings       (anh trang Lien he / Gioi thieu)
+    - Contacts           (form lien he)
+    - PaymentProvider    (dat hang online)
+    - Reviews co anh
+    - Du lieu mau (san pham, banner, ma giam gia...)
+
+  CACH A - Chay trong SSMS (de nhat):
+    1. Mo SSMS
+    2. File -> Open -> chon SQL\SQLQuery1.sql
+    3. Nhan F5 (Execute)
+    4. Doi den khi thay "Commands completed successfully"
+
+  CACH B - Chay bang sqlcmd (PowerShell):
+    cd C:\duong\dan\den\thietbiyte_shop
+
+    # May dung SQL Server mac dinh:
+    sqlcmd -S localhost -U sa -P "MatKhauSaCuaBan" -i SQL\SQLQuery1.sql
+
+    # May dung SQL Server Express:
+    sqlcmd -S localhost\SQLEXPRESS -U sa -P "MatKhauSaCuaBan" -i SQL\SQLQuery1.sql
+
+  CANH BAO:
+    SQLQuery1.sql XOA va TAO LAI toan bo bang -> mat du lieu cu neu chay lai.
+    Chi chay khi CAI MOI hoac muon reset ve ban mau.
+
+
+================================================================================
+4. CAU HINH BACKEND
+================================================================================
+
+  cd thietbiyte_shop\backend
+  copy .env.example .env
+
+  Mo file backend\.env va SUA cac dong sau:
+
+  +------------------------------------------------------------------+
+  | THAM SO          | GIA TRI MAC DINH        | GHI CHU            |
+  +------------------------------------------------------------------+
+  | DB_SERVER        | localhost               | Xem muc 8 ben duoi |
+  | DB_PORT          | 1433                    | Giu nguyen         |
+  | DB_USER          | sa                      | Giu nguyen         |
+  | DB_PASSWORD      | YourStrongPassword123   | DOI = mat khau sa  |
+  | DB_NAME          | MediCareStore           | Giu nguyen         |
+  | JWT_SECRET       | (chuoi bat ky dai)      | DOI tren may that  |
+  | CLIENT_URL       | http://localhost:5173   | Giu neu dev local  |
+  +------------------------------------------------------------------+
+
+  Vi du backend\.env tren may dung SQL Express:
+
+    DB_SERVER=localhost\SQLEXPRESS
+    DB_PASSWORD=MyPassword@2024
+
+  Cai package & tao tai khoan:
+
+    npm install
+    npm run seed        <- tao admin + user demo
+    npm run dev         <- chay API port 5000
+
+  Kiem tra thanh cong - thay log:
+    Connected to SQL Server
+    Database schema ensured (SiteSettings, Wishlists, Contacts, ...)
+    MediCare Store API: http://localhost:5000
+
+  Mo trinh duyet: http://localhost:5000/api/health
+
+
+================================================================================
+5. CAU HINH FRONTEND
+================================================================================
+
+  Mo terminal MOI (giu backend dang chay):
+
+  cd thietbiyte_shop\frontend
+  copy .env.example .env
+
+  File frontend\.env (dev local - thuong KHONG can doi):
+
+    VITE_API_URL=http://localhost:5000/api
+    VITE_UPLOAD_URL=http://localhost:5000
+
+  npm install
+  npm run dev
+
+  Truy cap: http://localhost:5173
+
+
+================================================================================
+6. CHAY UNG DUNG (TOM TAT)
+================================================================================
+
+  Terminal 1 - Backend:
+    cd backend
+    npm run dev
+
+  Terminal 2 - Frontend:
+    cd frontend
+    npm run dev
+
+  URL:
+    Cua hang:    http://localhost:5173
+    Admin:       http://localhost:5173/admin
+    API health:  http://localhost:5000/api/health
+
+
+================================================================================
+7. TAI KHOAN DEMO
+================================================================================
+
+  (Tao bang lenh: cd backend && npm run seed)
+
+  Admin:  admin@medicarestore.com  /  Admin@123
+  User:   user@medicarestore.com   /  User@123
+
+  Ma giam gia mau: WELCOME10 | MEDICARE50K | VIP15
+
+
+================================================================================
+8. CACH DOI CAU HINH SQL THEO TUNG MAY
+================================================================================
+
+  Ban chi can doi 2 CHO: file backend\.env  va  lenh sqlcmd (neu dung).
+
+  --- TRUONG HOP 1: SQL Server cai mac dinh tren may Windows ---
+    DB_SERVER=localhost
+    sqlcmd -S localhost -U sa -P "MatKhauCuaBan" ...
+
+  --- TRUONG HOP 2: SQL Server Express ---
+    DB_SERVER=localhost\SQLEXPRESS
+    sqlcmd -S localhost\SQLEXPRESS -U sa -P "MatKhauCuaBan" ...
+
+  --- TRUONG HOP 3: SQL Server tren may khac trong mang LAN ---
+    DB_SERVER=192.168.1.100
+    (Can bat TCP/IP + mo port 1433 tren may chay SQL)
+
+  --- TRUONG HOP 4: Dung Windows Authentication (khong dung sa) ---
+    Project hien tai dung sa + mat khau.
+    De dung Windows Auth can sua them backend\src\config\db.js
+    -> Khuyen dung sa cho de cai dat.
+
+  BANG DOI NHANH backend\.env:
+
+    May ban                          DB_SERVER
+    -------------------------------- ---------------------------
+    Laptop ca nhan (SQL mac dinh)    localhost
+    Laptop (SQL Express)             localhost\SQLEXPRESS
+    May tinh van phong               ten-may\SQLEXPRESS
+    Server rieng                     IP hoac ten host
+
+    DB_PASSWORD = mat khau sa ban dat luc cai SQL Server
+    DB_NAME     = MediCareStore (khong doi tru khi doi ten DB trong SQL)
+
+
+================================================================================
+9. HAI CACH CAI DATABASE (CHON 1)
+================================================================================
+
+  CACH 1 - CHAY SQLQuery1.sql (KHUYEN DUNG cho may moi)
+  ------------------------------------------------------
+    + Day du 100%, khong thieu bang/cot
+    + Co san du lieu mau
+    - Xoa het du lieu cu neu chay lai
+
+    File: SQL\SQLQuery1.sql
+
+  CACH 2 - Backend tu dong bo sung (ensureSchema)
+  ------------------------------------------------
+    Khi chay "npm run dev", backend tu tao/bo sung:
+      - SiteSettings
+      - Wishlists
+      - Contacts (+ cot moi)
+      - PaymentProvider tren Orders
+      - Reviews ImageUrls, UpdatedAt
+
+    + Tien khi da co DB cu, chi thieu vai bang
+    - Khong co du lieu mau san pham/banner
+    - Can chay schema.sql hoac SQLQuery1.sql lan dau
+
+  KHUYEN NGHI MAY MOI:
+    Buoc 1: Chay SQL\SQLQuery1.sql
+    Buoc 2: npm run seed (tao admin/user)
+    Buoc 3: npm run dev backend + frontend
+
+  MAY DA CO DB CU (chi thieu bang):
+    Buoc 1: Restart backend (ensureSchema tu sua)
+    HOAC chay: database\migrations\002 den 006
+
+
+================================================================================
+10. XU LY LOI THUONG GAP
+================================================================================
+
+  LOI: "Login failed for user 'sa'"
+  -> Sai mat khau trong backend\.env
+  -> Chua bat Mixed Mode Authentication (xem muc 3.2)
+
+  LOI: "Cannot connect to SQL Server"
+  -> SQL Server chua chay: Services -> SQL Server (MSSQLSERVER) -> Start
+  -> Sai DB_SERVER (thu localhost\SQLEXPRESS)
+  -> Chua bat TCP/IP trong SQL Server Configuration Manager
+
+  LOI: "Invalid object name 'Wishlists'" / "'SiteSettings'"
+  -> Chua chay SQLQuery1.sql hoac migration
+  -> Restart backend: npm run dev (ensureSchema tu tao)
+
+  LOI: "Invalid column name 'PaymentProvider'"
+  -> Chua co cot PaymentProvider tren bang Orders
+  -> Restart backend HOAC chay: database\migrations\006_payment_provider.sql
+
+  LOI: Anh khong hien thi
+  -> Backend chua chay
+  -> frontend\.env thieu: VITE_UPLOAD_URL=http://localhost:5000
+  -> Chua copy thu muc backend\uploads tu may cu
+
+  LOI: Trang trang / CORS
+  -> Can chay CA HAI backend + frontend
+  -> CLIENT_URL trong backend\.env = http://localhost:5173
+
+  Quen mat khau admin:
+    cd backend
+    npm run unlock-admin
+
+
+================================================================================
+CHECKLIST CAI DAT NHANH
+================================================================================
+
+  [ ] Cai Node.js + SQL Server + SSMS
+  [ ] Copy thu muc thietbiyte_shop
+  [ ] Chay SQL\SQLQuery1.sql trong SSMS (F5)
+  [ ] backend\.env -> doi DB_SERVER, DB_PASSWORD
+  [ ] cd backend -> npm install -> npm run seed -> npm run dev
+  [ ] frontend\.env (giu mac dinh neu dev local)
+  [ ] cd frontend -> npm install -> npm run dev
+  [ ] Mo http://localhost:5173
+  [ ] Dang nhap admin -> http://localhost:5173/admin
+
+
+================================================================================
+LIEN HE / GHI CHU
+================================================================================
+
+  File SQL chinh (may moi):     SQL\SQLQuery1.sql
+  File SQL an toan (giu data):  SQL\install-safe.sql
+  Script tu dong:               CAI-DAT.bat + install-all.ps1
+  Bao cao Word:                 BAO-CAO-MEDICARE-STORE.docx
+  Huong dan ngan:               CAI-DAT-NHANH.txt
+
+  Neu can reset toan bo DB: chay lai SQLQuery1.sql roi npm run seed
+
+================================================================================

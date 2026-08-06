@@ -1,0 +1,27 @@
+================================================================================
+  MEDICARE STORE - CAI 1 CLICK
+================================================================================
+
+  BUOC 1: Double-click file   CAI-DAT.bat
+
+  BUOC 2 (lan dau): Sua 3 dong trong backend\.env khi Notepad mo ra:
+           DB_SERVER=...     (ten may SQL, vi du: KAOOXANGG hoac localhost)
+           DB_USER=...       (vi du: sang hoac sa)
+           DB_PASSWORD=...   (mat khau SQL cua ban)
+
+  BUOC 3: Mo VS Code -> 2 terminal:
+           cd backend   -> npm run dev
+           cd frontend  -> npm run dev
+
+  BUOC 4: Mo trinh duyet http://localhost:5173
+
+  Script tu dong lam:
+    - npm install backend + frontend
+    - Tao frontend/.env
+    - Chay SQL (tu chon an toan hoac day du)
+    - Tao bang thieu (Wishlists, SiteSettings...)
+    - Tao tai khoan admin/user
+
+  Lan sau chi can chay lai CAI-DAT.bat neu doi may (giu nguyen .env da sua)
+
+================================================================================
