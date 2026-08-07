@@ -192,7 +192,7 @@ thietbiyte_shop
 
 1. Clone project
 
-git clone https://github.com/your-username/medicare-store.git
+git clone https://github.com/KaoXangg/medicare-store.git
 cd medicare-store
 
 ⸻
