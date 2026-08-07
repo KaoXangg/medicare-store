@@ -471,7 +471,4 @@ Dự án được xây dựng phục vụ mục đích học tập, nghiên cứ
 👨‍💻 Tác giả
 
 Trần Cao Sang
-
-Fullstack Developer
-
 Nếu dự án hữu ích, hãy ⭐ repository để ủng hộ quá trình phát triển.
