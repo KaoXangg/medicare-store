@@ -16,6 +16,7 @@ import wishlistRoutes from './wishlistRoutes.js';
 import notificationRoutes from './notificationRoutes.js';
 import activityRoutes from './activityRoutes.js';
 import pageRoutes from './pageRoutes.js';
+import warrantyRoutes from './warrantyRoutes.js';
 
 const router = Router();
 
@@ -36,5 +37,7 @@ router.use('/home', homeRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/admin', adminRoutes);
 router.use('/activity', activityRoutes);
+router.use('/warranties', warrantyRoutes);
+
 
 export default router;

@@ -42,6 +42,7 @@ const menuGroups = [
       { to: '/admin/users', icon: Users, label: 'Người dùng' },
       { to: '/admin/reviews', icon: MessageSquare, label: 'Đánh giá' },
       { to: '/admin/contacts', icon: Mail, label: 'Liên hệ' },
+      { to: '/admin/warranties', icon: ShieldCheck, label: 'Quản lý bảo hành' },
       { to: '/admin/activity', icon: Activity, label: 'Nhật ký hoạt động' },
     ]
   }
@@ -57,6 +58,7 @@ const routeTitles = {
   '/admin/users': 'Quản lý người dùng',
   '/admin/reviews': 'Quản lý đánh giá',
   '/admin/contacts': 'Quản lý liên hệ',
+  '/admin/warranties': 'Quản lý bảo hành',
   '/admin/activity': 'Nhật ký hoạt động',
   '/admin/products/create': 'Thêm sản phẩm',
 };

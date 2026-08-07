@@ -47,6 +47,8 @@ const AdminCoupons = lazy(() => import('./pages/admin/AdminCoupons'));
 const WishlistPage = lazy(() => import('./pages/WishlistPage'));
 const AdminFlashSale = lazy(() => import('./pages/admin/AdminFlashSale'));
 const AdminActivityLog = lazy(() => import('./pages/admin/AdminActivityLog'));
+const AdminWarranties = lazy(() => import('./pages/admin/AdminWarranties'));
+const AdminWarrantyForm = lazy(() => import('./pages/admin/AdminWarrantyForm'));
 
 function LazyPage({ children }) {
   return <Suspense fallback={<PageSkeleton />}>{children}</Suspense>;
@@ -113,6 +115,9 @@ export default function App() {
                   <Route path="brands" element={<LazyPage><AdminBrands /></LazyPage>} />
                   <Route path="flash-sale" element={<LazyPage><AdminFlashSale /></LazyPage>} />
                   <Route path="activity" element={<LazyPage><AdminActivityLog /></LazyPage>} />
+                  <Route path="warranties" element={<LazyPage><AdminWarranties /></LazyPage>} />
+                  <Route path="warranties/create" element={<LazyPage><AdminWarrantyForm /></LazyPage>} />
+                  <Route path="warranties/edit/:id" element={<LazyPage><AdminWarrantyForm /></LazyPage>} />
                 </Route>
               </Routes>
             </BrowserRouter>
