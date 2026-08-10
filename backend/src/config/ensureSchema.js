@@ -1,63 +1,54 @@
 import { query } from './db.js';
 
+// Ghi chú: hàm này không được gọi ở đâu trong server.js (giữ nguyên như bản
+// gốc — đã kiểm tra không có import ensureSchema ở nơi khác). Để dùng, gọi
+// `await ensureSchema()` trong start() ở server.js trước khi app.listen().
+// Các lệnh dưới dùng IF NOT EXISTS/ADD COLUMN IF NOT EXISTS sẵn có của
+// Postgres nên an toàn chạy lại nhiều lần.
 export async function ensureSchema() {
   const statements = [
-    `IF OBJECT_ID('dbo.SiteSettings', 'U') IS NULL
-     BEGIN
-       CREATE TABLE dbo.SiteSettings (
-         SettingKey NVARCHAR(100) PRIMARY KEY,
-         SettingValue NVARCHAR(MAX) NULL,
-         UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-       );
-       INSERT INTO dbo.SiteSettings (SettingKey, SettingValue) VALUES
-         (N'site_name', N'MediCare Store'),
-         (N'site_description', N'Thiết bị y tế cao cấp chính hãng'),
-         (N'contact_email', N'support@medicarestore.com'),
-         (N'contact_phone', N'1900 1234');
-     END`,
-    `IF OBJECT_ID('dbo.Wishlists', 'U') IS NULL
-     BEGIN
-       CREATE TABLE dbo.Wishlists (
-         WishlistId INT IDENTITY(1,1) PRIMARY KEY,
-         UserId INT NOT NULL REFERENCES dbo.Users(UserId) ON DELETE CASCADE,
-         ProductId INT NOT NULL REFERENCES dbo.Products(ProductId) ON DELETE CASCADE,
-         CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-         CONSTRAINT UQ_Wishlist_UserProduct UNIQUE (UserId, ProductId)
-       );
-       CREATE INDEX IX_Wishlists_User ON dbo.Wishlists(UserId);
-     END`,
-    `IF OBJECT_ID('dbo.Contacts', 'U') IS NULL
-     BEGIN
-       CREATE TABLE dbo.Contacts (
-         ContactId INT IDENTITY(1,1) PRIMARY KEY,
-         UserId INT NULL,
-         FullName NVARCHAR(200) NOT NULL,
-         Email NVARCHAR(255) NOT NULL,
-         Phone NVARCHAR(20) NULL,
-         Subject NVARCHAR(300) NOT NULL,
-         Message NVARCHAR(2000) NOT NULL,
-         Status NVARCHAR(20) NOT NULL DEFAULT 'new' CHECK (Status IN ('new', 'read', 'replied')),
-         AdminReply NVARCHAR(2000) NULL,
-         ReplyAt DATETIME2 NULL,
-         ReplyRead BIT NOT NULL DEFAULT 0,
-         CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE()
-       );
-     END`,
-    `IF COL_LENGTH('dbo.Contacts', 'UserId') IS NULL
-     ALTER TABLE dbo.Contacts ADD UserId INT NULL`,
-    `IF COL_LENGTH('dbo.Contacts', 'ReplyAt') IS NULL
-     ALTER TABLE dbo.Contacts ADD ReplyAt DATETIME2 NULL`,
-    `IF COL_LENGTH('dbo.Contacts', 'ReplyRead') IS NULL
-     ALTER TABLE dbo.Contacts ADD ReplyRead BIT NOT NULL DEFAULT 0`,
-    `IF COL_LENGTH('dbo.Reviews', 'ImageUrls') IS NULL
-     ALTER TABLE dbo.Reviews ADD ImageUrls NVARCHAR(MAX) NULL`,
-    `IF COL_LENGTH('dbo.Reviews', 'UpdatedAt') IS NULL
-     ALTER TABLE dbo.Reviews ADD UpdatedAt DATETIME2 NULL`,
-    `IF COL_LENGTH('dbo.Orders', 'PaymentProvider') IS NULL
-     ALTER TABLE dbo.Orders ADD PaymentProvider NVARCHAR(50) NULL`,
-    `IF NOT EXISTS (SELECT 1 FROM dbo.SiteSettings WHERE SettingKey = N'flash_sale_end')
-     INSERT INTO dbo.SiteSettings (SettingKey, SettingValue)
-     VALUES (N'flash_sale_end', CONVERT(NVARCHAR(30), DATEADD(HOUR, 8, CAST(CAST(GETUTCDATE() AS DATE) AS DATETIME2)), 126))`,
+    `CREATE TABLE IF NOT EXISTS SiteSettings (
+       SettingKey VARCHAR(100) PRIMARY KEY,
+       SettingValue TEXT NULL,
+       UpdatedAt TIMESTAMP NOT NULL DEFAULT GETUTCDATE()
+     )`,
+    `INSERT INTO SiteSettings (SettingKey, SettingValue) VALUES
+       ('site_name', 'MediCare Store'),
+       ('site_description', 'Thiết bị y tế cao cấp chính hãng'),
+       ('contact_email', 'support@medicarestore.com'),
+       ('contact_phone', '1900 1234')
+     ON CONFLICT (SettingKey) DO NOTHING`,
+    `CREATE TABLE IF NOT EXISTS Wishlists (
+       WishlistId SERIAL PRIMARY KEY,
+       UserId INTEGER NOT NULL REFERENCES Users(UserId) ON DELETE CASCADE,
+       ProductId INTEGER NOT NULL REFERENCES Products(ProductId) ON DELETE CASCADE,
+       CreatedAt TIMESTAMP NOT NULL DEFAULT GETUTCDATE(),
+       CONSTRAINT UQ_Wishlist_UserProduct UNIQUE (UserId, ProductId)
+     )`,
+    `CREATE INDEX IF NOT EXISTS IX_Wishlists_User ON Wishlists(UserId)`,
+    `CREATE TABLE IF NOT EXISTS Contacts (
+       ContactId SERIAL PRIMARY KEY,
+       UserId INTEGER NULL,
+       FullName VARCHAR(200) NOT NULL,
+       Email VARCHAR(255) NOT NULL,
+       Phone VARCHAR(20) NULL,
+       Subject VARCHAR(300) NOT NULL,
+       Message VARCHAR(2000) NOT NULL,
+       Status VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (Status IN ('new', 'read', 'replied')),
+       AdminReply VARCHAR(2000) NULL,
+       ReplyAt TIMESTAMP NULL,
+       ReplyRead SMALLINT NOT NULL DEFAULT 0,
+       CreatedAt TIMESTAMP NOT NULL DEFAULT GETUTCDATE()
+     )`,
+    `ALTER TABLE Contacts ADD COLUMN IF NOT EXISTS UserId INTEGER NULL`,
+    `ALTER TABLE Contacts ADD COLUMN IF NOT EXISTS ReplyAt TIMESTAMP NULL`,
+    `ALTER TABLE Contacts ADD COLUMN IF NOT EXISTS ReplyRead SMALLINT NOT NULL DEFAULT 0`,
+    `ALTER TABLE Reviews ADD COLUMN IF NOT EXISTS ImageUrls TEXT NULL`,
+    `ALTER TABLE Reviews ADD COLUMN IF NOT EXISTS UpdatedAt TIMESTAMP NULL`,
+    `ALTER TABLE Orders ADD COLUMN IF NOT EXISTS PaymentProvider VARCHAR(50) NULL`,
+    `INSERT INTO SiteSettings (SettingKey, SettingValue)
+     SELECT 'flash_sale_end', TO_CHAR(date_trunc('day', GETUTCDATE()) + INTERVAL '8 hours', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"')
+     WHERE NOT EXISTS (SELECT 1 FROM SiteSettings WHERE SettingKey = 'flash_sale_end')`,
   ];
 
   for (const sql of statements) {

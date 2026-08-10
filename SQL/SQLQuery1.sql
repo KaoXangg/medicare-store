@@ -653,3 +653,24 @@ BEGIN
 END
 ELSE
   PRINT 'Column LastChangedFields already exists, skipped.';
+
+  CREATE TABLE Warranties (
+    WarrantyId INT IDENTITY(1,1) PRIMARY KEY,
+    WarrantyCode NVARCHAR(30) NOT NULL UNIQUE,
+    CustomerName NVARCHAR(150) NOT NULL,
+    Phone NVARCHAR(20) NOT NULL,
+    ProductId INT NULL,
+    ProductName NVARCHAR(255) NOT NULL,
+    OrderId INT NULL,
+    PurchaseDate DATE NOT NULL,
+    ExpiryDate DATE NOT NULL,
+    Status NVARCHAR(20) NOT NULL DEFAULT 'active', -- active | void  (hết hạn tự tính theo ExpiryDate, void = admin thu hồi thủ công)
+    Notes NVARCHAR(500) NULL,
+    CreatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    UpdatedAt DATETIME2 DEFAULT GETUTCDATE(),
+    CONSTRAINT FK_Warranties_Products FOREIGN KEY (ProductId) REFERENCES Products(ProductId),
+    CONSTRAINT FK_Warranties_Orders FOREIGN KEY (OrderId) REFERENCES Orders(OrderId)
+);
+
+CREATE INDEX IX_Warranties_Phone ON Warranties(Phone);
+CREATE INDEX IX_Warranties_ExpiryDate ON Warranties(ExpiryDate);

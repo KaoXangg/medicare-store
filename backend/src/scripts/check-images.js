@@ -5,13 +5,13 @@ dotenv.config();
 
 async function run() {
   await getPool();
-  const res = await query('SELECT TOP 10 * FROM ProductImages');
+  const res = await query('SELECT * FROM ProductImages LIMIT 10');
   console.log('ProductImages content:', res.recordset);
   
-  const banners = await query('SELECT TOP 10 * FROM Banners');
+  const banners = await query('SELECT * FROM Banners LIMIT 10');
   console.log('Banners content:', banners.recordset);
   
-  const cats = await query('SELECT TOP 10 * FROM Categories');
+  const cats = await query('SELECT * FROM Categories LIMIT 10');
   console.log('Categories content:', cats.recordset);
 
   process.exit(0);

@@ -61,10 +61,10 @@ export const getMyContactNotifications = async (req, res, next) => {
       { userId: req.user.UserId }
     );
     const recent = await query(
-      `SELECT TOP 5 ContactId, Subject, AdminReply, ReplyAt, ReplyRead
+      `SELECT ContactId, Subject, AdminReply, ReplyAt, ReplyRead
        FROM Contacts
        WHERE UserId = @userId AND Status = 'replied' AND AdminReply IS NOT NULL
-       ORDER BY ReplyAt DESC, CreatedAt DESC`,
+       ORDER BY ReplyAt DESC, CreatedAt DESC LIMIT 5`,
       { userId: req.user.UserId }
     );
     res.json({
@@ -116,7 +116,7 @@ export const getContacts = async (req, res, next) => {
     const result = await query(
       `SELECT * FROM Contacts ${where}
        ORDER BY CreatedAt DESC
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+       LIMIT @limit OFFSET @offset`,
       params
     );
 

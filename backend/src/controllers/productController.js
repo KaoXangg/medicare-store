@@ -95,11 +95,11 @@ export const getProducts = async (req, res, next) => {
       params.search = `%${search}%`;
     }
     if (category) {
-      where += ' AND (c.Slug = @category OR p.CategoryId = TRY_CAST(@category AS INT))';
+      where += ' AND (c.Slug = @category OR p.CategoryId = TRY_CAST_INT(@category))';
       params.category = category;
     }
     if (brand) {
-      where += ' AND (b.Slug = @brand OR p.BrandId = TRY_CAST(@brand AS INT))';
+      where += ' AND (b.Slug = @brand OR p.BrandId = TRY_CAST_INT(@brand))';
       params.brand = brand;
     }
     if (minPrice) {
@@ -134,7 +134,7 @@ export const getProducts = async (req, res, next) => {
        LEFT JOIN Categories c ON p.CategoryId = c.CategoryId
        LEFT JOIN Brands b ON p.BrandId = b.BrandId
        ${where} ORDER BY ${orderBy}
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+       LIMIT @limit OFFSET @offset`,
       params
     );
 
@@ -232,8 +232,8 @@ export const createProduct = async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO Products (CategoryId, BrandId, Name, Slug, Description, Specifications, Price, SalePrice, Stock, SKU, IsFeatured, IsPopular)
-       OUTPUT INSERTED.*
-       VALUES (@categoryId, @brandId, @name, @productSlug, @description, @specs, @price, @salePrice, @stock, @sku, @isFeatured, @isPopular)`,
+       VALUES (@categoryId, @brandId, @name, @productSlug, @description, @specs, @price, @salePrice, @stock, @sku, @isFeatured, @isPopular)
+       RETURNING *`,
       {
         categoryId: parseNum(body.categoryId),
         brandId: parseNum(body.brandId),
@@ -331,8 +331,8 @@ export const setProductVisibility = async (req, res, next) => {
 
     const result = await query(
       `UPDATE Products SET IsActive = @isActive, UpdatedAt = GETUTCDATE()
-       OUTPUT INSERTED.ProductId, INSERTED.Name, INSERTED.IsActive
-       WHERE ProductId = @id`,
+       WHERE ProductId = @id
+       RETURNING ProductId, Name, IsActive`,
       { id, isActive: isActive ? 1 : 0 }
     );
     if (!result.recordset[0]) {
@@ -387,10 +387,10 @@ export const searchSuggest = async (req, res, next) => {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ success: true, data: [] });
     const result = await query(
-      `SELECT TOP 8 p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice,
-        (SELECT TOP 1 ImageUrl FROM ProductImages pi WHERE pi.ProductId = p.ProductId ORDER BY pi.IsPrimary DESC) AS PrimaryImage
+      `SELECT p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice,
+        (SELECT ImageUrl FROM ProductImages pi WHERE pi.ProductId = p.ProductId ORDER BY pi.IsPrimary DESC LIMIT 1) AS PrimaryImage
        FROM Products p WHERE p.IsActive = 1 AND (p.Name LIKE @search OR p.SKU LIKE @search)
-       ORDER BY p.SoldCount DESC`,
+       ORDER BY p.SoldCount DESC LIMIT 8`,
       { search: `%${q}%` }
     );
     res.json({ success: true, data: result.recordset });

@@ -76,8 +76,8 @@ export const createCoupon = async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO Coupons (Code, Description, DiscountType, DiscountValue, MinOrderAmount, MaxDiscount, UsageLimit, StartDate, EndDate, IsActive)
-       OUTPUT INSERTED.*
-       VALUES (@code, @description, @discountType, @discountValue, @minOrder, @maxDiscount, @usageLimit, @startDate, @endDate, @isActive)`,
+       VALUES (@code, @description, @discountType, @discountValue, @minOrder, @maxDiscount, @usageLimit, @startDate, @endDate, @isActive)
+       RETURNING *`,
       {
         code,
         description: body.description?.trim() || null,

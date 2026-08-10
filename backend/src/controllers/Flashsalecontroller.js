@@ -9,7 +9,7 @@ export const getFlashSaleAdmin = async (req, res, next) => {
       query(
         `SELECT fsi.FlashSaleItemId, fsi.ProductId, fsi.SortOrder,
           p.Name, p.Slug, p.Price, p.SalePrice, p.Stock, p.IsActive,
-          (SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage
+          (SELECT ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage
          FROM FlashSaleItems fsi
          JOIN Products p ON p.ProductId = fsi.ProductId
          ORDER BY fsi.SortOrder`
@@ -43,11 +43,9 @@ export const updateFlashSaleEnd = async (req, res, next) => {
     }
 
     await query(
-      `MERGE SiteSettings AS target
-       USING (SELECT 'flash_sale_end' AS SettingKey) AS src
-       ON target.SettingKey = src.SettingKey
-       WHEN MATCHED THEN UPDATE SET SettingValue = @endTime
-       WHEN NOT MATCHED THEN INSERT (SettingKey, SettingValue) VALUES ('flash_sale_end', @endTime);`,
+      `INSERT INTO SiteSettings (SettingKey, SettingValue)
+       VALUES ('flash_sale_end', @endTime)
+       ON CONFLICT (SettingKey) DO UPDATE SET SettingValue = EXCLUDED.SettingValue`,
       { endTime: parsed.toISOString() }
     );
 

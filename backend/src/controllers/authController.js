@@ -73,8 +73,8 @@ export const register = async (req, res, next) => {
     const hash = await bcrypt.hash(password, 12);
     const result = await query(
       `INSERT INTO Users (Email, PasswordHash, FullName, Phone, IdCard)
-       OUTPUT INSERTED.UserId, INSERTED.Email, INSERTED.FullName, INSERTED.Phone, INSERTED.IdCard, INSERTED.Role
-       VALUES (@email, @hash, @fullName, @phone, @idCard)`,
+       VALUES (@email, @hash, @fullName, @phone, @idCard)
+       RETURNING UserId, Email, FullName, Phone, IdCard, Role`,
       { email, hash, fullName, phone: phone || null, idCard: idCard || null }
     );
     const user = result.recordset[0];

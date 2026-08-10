@@ -32,7 +32,7 @@ export const createBrand = async (req, res, next) => {
     const brandSlug = req.body.slug || slug(name);
     const logo = resolveLogo(req);
     const result = await query(
-      `INSERT INTO Brands (Name, Slug, Logo, Description) OUTPUT INSERTED.* VALUES (@name, @brandSlug, @logo, @description)`,
+      `INSERT INTO Brands (Name, Slug, Logo, Description) VALUES (@name, @brandSlug, @logo, @description) RETURNING *`,
       { name, brandSlug, logo, description: req.body.description?.trim() || null }
     );
     res.status(201).json({ success: true, data: result.recordset[0] });
@@ -75,7 +75,7 @@ export const setBrandVisibility = async (req, res, next) => {
     const isActive =
       req.body.isActive === true || req.body.isActive === 'true' || req.body.isActive === 1;
     const result = await query(
-      `UPDATE Brands SET IsActive = @isActive OUTPUT INSERTED.* WHERE BrandId = @id`,
+      `UPDATE Brands SET IsActive = @isActive WHERE BrandId = @id RETURNING *`,
       { id: req.params.id, isActive: isActive ? 1 : 0 }
     );
     if (!result.recordset[0]) {

@@ -29,7 +29,8 @@ export const createBanner = async (req, res, next) => {
       req.body.isActive === 'false' || req.body.isActive === false ? 0 : 1;
     const result = await query(
       `INSERT INTO Banners (Title, Subtitle, ImageUrl, LinkUrl, SortOrder, IsActive)
-       OUTPUT INSERTED.* VALUES (@title, @subtitle, @imageUrl, @linkUrl, @sortOrder, @isActive)`,
+       VALUES (@title, @subtitle, @imageUrl, @linkUrl, @sortOrder, @isActive)
+       RETURNING *`,
       {
         title,
         subtitle: subtitle || null,

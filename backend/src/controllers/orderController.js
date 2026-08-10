@@ -52,7 +52,7 @@ export const createOrder = async (req, res, next) => {
       const total = price * item.quantity;
       subtotal += total;
       const img = await query(
-        'SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = @id AND IsPrimary = 1',
+        'SELECT ImageUrl FROM ProductImages WHERE ProductId = @id AND IsPrimary = 1 LIMIT 1',
         { id: product.ProductId }
       );
       orderDetails.push({
@@ -92,9 +92,9 @@ export const createOrder = async (req, res, next) => {
     const orderResult = await query(
       `INSERT INTO Orders (UserId, OrderCode, CustomerName, CustomerPhone, CustomerEmail, ShippingAddress, Note,
         SubTotal, DiscountAmount, ShippingFee, TotalAmount, CouponId, Status, PaymentMethod, PaymentStatus, PaymentProvider)
-       OUTPUT INSERTED.*
        VALUES (@userId, @orderCode, @customerName, @customerPhone, @customerEmail, @shippingAddress, @note,
-        @subtotal, @discount, @shippingFee, @total, @couponId, 'pending', @paymentMethod, @paymentStatus, @paymentProvider)`,
+        @subtotal, @discount, @shippingFee, @total, @couponId, 'pending', @paymentMethod, @paymentStatus, @paymentProvider)
+       RETURNING *`,
       {
         userId: req.user.UserId,
         orderCode,
@@ -222,9 +222,9 @@ const attachOrderItems = async (orders) => {
 export const getMyOrders = async (req, res, next) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 0, 50);
-    const topClause = limit > 0 ? `TOP (${limit})` : '';
+    const limitClause = limit > 0 ? `LIMIT ${limit}` : '';
     const result = await query(
-      `SELECT ${topClause} * FROM Orders WHERE UserId = @userId ORDER BY CreatedAt DESC`,
+      `SELECT * FROM Orders WHERE UserId = @userId ORDER BY CreatedAt DESC ${limitClause}`,
       { userId: req.user.UserId }
     );
     const data = await attachOrderItems(result.recordset);
@@ -275,16 +275,17 @@ export const getAllOrders = async (req, res, next) => {
     // chỉ cần TOP N mới nhất, không cần phân trang OFFSET/FETCH.
     const result = await query(
       userId
-        ? `SELECT TOP (@limit) o.*, u.FullName AS UserName, u.Email AS UserEmail,
+        ? `SELECT o.*, u.FullName AS UserName, u.Email AS UserEmail,
              (SELECT COUNT(*) FROM OrderDetails od WHERE od.OrderId = o.OrderId) AS ItemCount
            FROM Orders o
            JOIN Users u ON o.UserId = u.UserId ${where}
-           ORDER BY o.CreatedAt DESC`
+           ORDER BY o.CreatedAt DESC
+           LIMIT @limit`
         : `SELECT o.*, u.FullName AS UserName, u.Email AS UserEmail,
              (SELECT COUNT(*) FROM OrderDetails od WHERE od.OrderId = o.OrderId) AS ItemCount
            FROM Orders o
            JOIN Users u ON o.UserId = u.UserId ${where}
-           ORDER BY o.CreatedAt DESC OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+           ORDER BY o.CreatedAt DESC LIMIT @limit OFFSET @offset`,
       params
     );
 

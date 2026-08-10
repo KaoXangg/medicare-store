@@ -183,9 +183,9 @@ async function seedProducts() {
     const result = await query(
       `INSERT INTO Products (CategoryId, BrandId, Name, Slug, Description, Specifications, Price, SalePrice, Stock, SKU,
         IsFeatured, IsPopular, SoldCount, AverageRating, ReviewCount, IsActive)
-       OUTPUT INSERTED.ProductId
        VALUES (@categoryId, @brandId, @name, @productSlug, @description, @specs, @price, @salePrice, @stock, @sku,
-        @isFeatured, @isPopular, @soldCount, @rating, @reviews, 1)`,
+        @isFeatured, @isPopular, @soldCount, @rating, @reviews, 1)
+       RETURNING ProductId`,
       {
         categoryId: p.categoryId,
         brandId: p.brandId,

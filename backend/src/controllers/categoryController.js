@@ -42,7 +42,8 @@ export const createCategory = async (req, res, next) => {
     const image = resolveCategoryImage(req);
     const result = await query(
       `INSERT INTO Categories (Name, Slug, Description, Image, SortOrder)
-       OUTPUT INSERTED.* VALUES (@name, @categorySlug, @description, @image, @sortOrder)`,
+       VALUES (@name, @categorySlug, @description, @image, @sortOrder)
+       RETURNING *`,
       {
         name,
         categorySlug,
@@ -105,10 +106,11 @@ export const toggleCategoryVisibility = async (req, res, next) => {
   try {
     const id = parseInt(req.params.id, 10);
     const isActive = req.body.isActive === true || req.body.isActive === 'true' || req.body.isActive === 1;
-    const result = await query(
-      'UPDATE Categories SET IsActive = @isActive WHERE CategoryId = @id; SELECT * FROM Categories WHERE CategoryId = @id',
+    await query(
+      'UPDATE Categories SET IsActive = @isActive WHERE CategoryId = @id',
       { id, isActive: isActive ? 1 : 0 }
     );
+    const result = await query('SELECT * FROM Categories WHERE CategoryId = @id', { id });
     if (!result.recordset[0]) {
       return res.status(404).json({ success: false, message: 'Danh mục không tồn tại' });
     }

@@ -156,7 +156,8 @@ export default function AdminDashboard() {
   const pendingOrders   = data?.orderStats?.pending || 0;
   const conversionRate  = totalOrders ? Math.round(((data?.orderStats?.completed || 0) / totalOrders) * 100) : 0;
   const avgOrderValue   = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
-  const growth          = data?.stats?.growth ?? 8.2;
+  const growth          = data?.growth ?? 0;
+  const cardGrowth      = data?.cardGrowth || {};
 
   
   const revenueChartData = useMemo(() => {
@@ -327,13 +328,13 @@ export default function AdminDashboard() {
 
       <div className="grid gap-3 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
         <AdminStatCard title="Doanh Thu"          value={formatPrice(totalRevenue)}   icon={DollarSign}    color="sky"     growth={growth}  compareLabel="hôm qua"     sparklineData={sparklineData.revenue}                                    index={0} to="/admin/orders" />
-        <AdminStatCard title="Đơn Hàng"           value={totalOrders}                 icon={ShoppingBag}   color="emerald" growth={Math.round((data.orderStats?.completed / Math.max(totalOrders,1))*100)} compareLabel="tuần trước" sparklineData={sparklineData.orders} index={1} to="/admin/orders" />
-        <AdminStatCard title="Khách Hàng"         value={totalCustomers}              icon={Users}         color="violet"  growth={12.4}    compareLabel="tháng trước" sparklineData={sparklineData.customers}                                  index={2} to="/admin/users" />
-        <AdminStatCard title="Sản Phẩm"           value={totalProducts}               icon={Package}       color="amber"   growth={2.1}     compareLabel="tháng trước" sparklineData={sparklineData.products}                                   index={3} to="/admin/products" />
-        <AdminStatCard title="Cảnh Báo Kho"       value={inventoryAlerts}             icon={AlertTriangle} color="orange"  growth={-6.8}    compareLabel="ngày trước"  sparklineData={[12,10,14,8,11,9,7]}                                     index={4} to="/admin/products" />
-        <AdminStatCard title="Đơn Chờ Xử Lý"     value={pendingOrders}               icon={Clock4}        color="cyan"    growth={4.2}     compareLabel="hôm qua"     sparklineData={[18,16,19,21,20,18,17]}                                   index={5} to="/admin/orders" />
-        <AdminStatCard title="Tỷ Lệ Chuyển Đổi"  value={`${conversionRate}%`}        icon={TrendingUp}    color="emerald" growth={2.5}     compareLabel="tuần trước"  sparklineData={[43,45,48,47,51,52,54]}                                   index={6} to="/admin/orders" />
-        <AdminStatCard title="Giá Trị Đơn TB"     value={formatPrice(avgOrderValue)}  icon={CreditCard}    color="purple"  growth={1.9}     compareLabel="tháng trước" sparklineData={[1100000,1300000,1200000,1400000,1500000,1450000,1520000]} index={7} to="/admin/orders" />
+        <AdminStatCard title="Đơn Hàng"           value={totalOrders}                 icon={ShoppingBag}   color="emerald" growth={cardGrowth.orders ?? 0}          compareLabel="tuần trước"  sparklineData={sparklineData.orders} index={1} to="/admin/orders" />
+        <AdminStatCard title="Khách Hàng"         value={totalCustomers}              icon={Users}         color="violet"  growth={cardGrowth.customers ?? 0}      compareLabel="tháng trước" sparklineData={sparklineData.customers}                                  index={2} to="/admin/users" />
+        <AdminStatCard title="Sản Phẩm"           value={totalProducts}               icon={Package}       color="amber"   growth={cardGrowth.products ?? 0}       compareLabel="tháng trước" sparklineData={sparklineData.products}                                   index={3} to="/admin/products" />
+        <AdminStatCard title="Cảnh Báo Kho"       value={inventoryAlerts}             icon={AlertTriangle} color="orange"  growth={cardGrowth.inventoryAlerts}     compareLabel="ngày trước"  sparklineData={[12,10,14,8,11,9,7]}                                     index={4} to="/admin/products" />
+        <AdminStatCard title="Đơn Chờ Xử Lý"     value={pendingOrders}               icon={Clock4}        color="cyan"    growth={cardGrowth.pendingOrders}        compareLabel="hôm qua"     sparklineData={[18,16,19,21,20,18,17]}                                   index={5} to="/admin/orders" />
+        <AdminStatCard title="Tỷ Lệ Chuyển Đổi"  value={`${conversionRate}%`}        icon={TrendingUp}    color="emerald" growth={cardGrowth.conversionRate ?? 0} compareLabel="tuần trước"  sparklineData={[43,45,48,47,51,52,54]}                                   index={6} to="/admin/orders" />
+        <AdminStatCard title="Giá Trị Đơn TB"     value={formatPrice(avgOrderValue)}  icon={CreditCard}    color="purple"  growth={cardGrowth.avgOrderValue ?? 0}  compareLabel="tháng trước" sparklineData={[1100000,1300000,1200000,1400000,1500000,1450000,1520000]} index={7} to="/admin/orders" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">

@@ -87,7 +87,7 @@ export const getWarranties = async (req, res, next) => {
     const result = await query(
       `SELECT * FROM Warranties ${where}
        ORDER BY CreatedAt DESC
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+       LIMIT @limit OFFSET @offset`,
       params
     );
 
@@ -137,8 +137,8 @@ export const createWarranty = async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO Warranties (WarrantyCode, CustomerName, Phone, ProductId, ProductName, OrderId, PurchaseDate, ExpiryDate, Notes)
-       OUTPUT INSERTED.*
-       VALUES (@warrantyCode, @customerName, @phone, @productId, @productName, @orderId, @purchaseDate, @expiryDate, @notes)`,
+       VALUES (@warrantyCode, @customerName, @phone, @productId, @productName, @orderId, @purchaseDate, @expiryDate, @notes)
+       RETURNING *`,
       {
         warrantyCode,
         customerName,

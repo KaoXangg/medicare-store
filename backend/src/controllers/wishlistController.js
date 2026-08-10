@@ -7,7 +7,7 @@ export const getWishlist = async (req, res, next) => {
     const result = await query(
       `SELECT w.WishlistId, w.ProductId, w.CreatedAt,
         p.Name, p.Slug, p.Price, p.SalePrice, p.Stock,
-        (SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage
+        (SELECT ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage
        FROM Wishlists w
        JOIN Products p ON w.ProductId = p.ProductId
        WHERE w.UserId = @userId AND p.IsActive = 1

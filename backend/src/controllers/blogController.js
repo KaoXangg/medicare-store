@@ -5,8 +5,8 @@ export const getPublishedPosts = async (req, res, next) => {
   try {
     const limit = Math.min(parseInt(req.query.limit, 10) || 6, 20);
     const result = await query(
-      `SELECT TOP (@limit) PostId, Title, Slug, Excerpt, ImageUrl, CreatedAt
-       FROM BlogPosts WHERE IsPublished = 1 ORDER BY CreatedAt DESC`,
+      `SELECT PostId, Title, Slug, Excerpt, ImageUrl, CreatedAt
+       FROM BlogPosts WHERE IsPublished = 1 ORDER BY CreatedAt DESC LIMIT @limit`,
       { limit }
     );
     res.json({ success: true, data: result.recordset });
@@ -51,7 +51,8 @@ export const createPost = async (req, res, next) => {
     const postSlug = req.body.slug || slug(title || '');
     const result = await query(
       `INSERT INTO BlogPosts (Title, Slug, Excerpt, Content, ImageUrl, IsPublished)
-       OUTPUT INSERTED.* VALUES (@title, @postSlug, @excerpt, @content, @imageUrl, @isPublished)`,
+       VALUES (@title, @postSlug, @excerpt, @content, @imageUrl, @isPublished)
+       RETURNING *`,
       {
         title,
         postSlug,

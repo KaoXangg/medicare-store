@@ -122,7 +122,7 @@ export const getLogs = async (req, res, next) => {
        LEFT JOIN Users u ON l.UserId = u.UserId
        ${where}
        ORDER BY l.CreatedAt DESC
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+       LIMIT @limit OFFSET @offset`,
       params
     );
 
@@ -164,12 +164,13 @@ export const getLogsByUser = async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT TOP 5000 l.LogId, l.UserId, l.ActionType, l.ActionDetail, l.PageUrl, l.Duration,
+      `SELECT l.LogId, l.UserId, l.ActionType, l.ActionDetail, l.PageUrl, l.Duration,
               l.IpAddress, l.CreatedAt, u.FullName, u.Email, u.Avatar
        FROM ActivityLogs l
        LEFT JOIN Users u ON l.UserId = u.UserId
        ${where}
-       ORDER BY l.CreatedAt DESC`,
+       ORDER BY l.CreatedAt DESC
+       LIMIT 5000`,
       params
     );
 
@@ -205,22 +206,22 @@ export const getStats = async (req, res, next) => {
       { start, end }
     );
     const activeUsers = await query(
-      `SELECT COUNT(DISTINCT UserId) AS cnt FROM ActivityLogs WHERE CreatedAt >= DATEADD(HOUR, -24, GETUTCDATE())`
+      `SELECT COUNT(DISTINCT UserId) AS cnt FROM ActivityLogs WHERE CreatedAt >= (GETUTCDATE() - INTERVAL '24 hours')`
     );
     const topActions = await query(
-      `SELECT TOP 5 ActionType, COUNT(*) AS cnt FROM ActivityLogs
-       WHERE CreatedAt >= DATEADD(DAY, -7, GETUTCDATE())
-       GROUP BY ActionType ORDER BY cnt DESC`
+      `SELECT ActionType, COUNT(*) AS cnt FROM ActivityLogs
+       WHERE CreatedAt >= (GETUTCDATE() - INTERVAL '7 days')
+       GROUP BY ActionType ORDER BY cnt DESC LIMIT 5`
     );
     const topProducts = await query(
-      `SELECT TOP 5
-         JSON_VALUE(ActionDetail, '$.productName') AS productName,
+      `SELECT
+         JSON_VALUE_SAFE(ActionDetail, 'productName') AS productName,
          COUNT(*) AS cnt
        FROM ActivityLogs
-       WHERE ActionType = 'product_view' AND CreatedAt >= DATEADD(DAY, -7, GETUTCDATE())
-         AND JSON_VALUE(ActionDetail, '$.productName') IS NOT NULL
-       GROUP BY JSON_VALUE(ActionDetail, '$.productName')
-       ORDER BY cnt DESC`
+       WHERE ActionType = 'product_view' AND CreatedAt >= (GETUTCDATE() - INTERVAL '7 days')
+         AND JSON_VALUE_SAFE(ActionDetail, 'productName') IS NOT NULL
+       GROUP BY JSON_VALUE_SAFE(ActionDetail, 'productName')
+       ORDER BY cnt DESC LIMIT 5`
     );
 
     res.json({

@@ -7,16 +7,16 @@ export const getAdminNotifications = async (req, res, next) => {
       query(`SELECT COUNT(*) AS cnt FROM Orders WHERE Status = 'pending'`),
       query(`SELECT COUNT(*) AS cnt FROM Contacts WHERE Status = 'new'`),
       query(
-        `SELECT TOP 8 o.OrderId, o.OrderCode, o.TotalAmount, o.Status, o.CreatedAt, u.FullName AS CustomerName
+        `SELECT o.OrderId, o.OrderCode, o.TotalAmount, o.Status, o.CreatedAt, u.FullName AS CustomerName
          FROM Orders o
          JOIN Users u ON o.UserId = u.UserId
          WHERE o.Status = 'pending'
-         ORDER BY o.CreatedAt DESC`
+         ORDER BY o.CreatedAt DESC LIMIT 8`
       ),
       query(
-        `SELECT TOP 8 ContactId, FullName, Email, Subject, Message, CreatedAt
+        `SELECT ContactId, FullName, Email, Subject, Message, CreatedAt
          FROM Contacts WHERE Status = 'new'
-         ORDER BY CreatedAt DESC`
+         ORDER BY CreatedAt DESC LIMIT 8`
       ),
     ]);
 

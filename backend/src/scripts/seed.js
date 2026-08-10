@@ -15,7 +15,7 @@ async function seed() {
   if (!adminExists.recordset.length) {
     await query(
       `INSERT INTO Users (Email, PasswordHash, FullName, Phone, Role) 
-       VALUES ('admin@medicarestore.com', @hash, N'Admin MediCare', '0901234567', 'admin')`,
+       VALUES ('admin@medicarestore.com', @hash, 'Admin MediCare', '0901234567', 'admin')`,
       { hash: adminHash }
     );
     console.log('✓ Admin: admin@medicarestore.com / Admin@123');
@@ -25,7 +25,7 @@ async function seed() {
   if (!userExists.recordset.length) {
     await query(
       `INSERT INTO Users (Email, PasswordHash, FullName, Phone, Address, Role) 
-       VALUES ('user@medicarestore.com', @hash, N'Nguyễn Văn User', '0912345678', N'123 Lê Lợi, Q1, TP.HCM', 'user')`,
+       VALUES ('user@medicarestore.com', @hash, 'Nguyễn Văn User', '0912345678', '123 Lê Lợi, Q1, TP.HCM', 'user')`,
       { hash: userHash }
     );
     console.log('✓ User: user@medicarestore.com / User@123');

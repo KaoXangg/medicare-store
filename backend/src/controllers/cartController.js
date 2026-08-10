@@ -4,7 +4,7 @@ import { getEffectivePrice } from '../utils/helpers.js';
 const cartQuery = `
   SELECT c.CartId, c.Quantity, c.ProductId,
     p.Name, p.Slug, p.Price, p.SalePrice, p.Stock,
-    (SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = p.ProductId AND IsPrimary = 1) AS ImageUrl
+    (SELECT ImageUrl FROM ProductImages WHERE ProductId = p.ProductId AND IsPrimary = 1 LIMIT 1) AS ImageUrl
   FROM Cart c JOIN Products p ON c.ProductId = p.ProductId
   WHERE c.UserId = @userId AND p.IsActive = 1
 `;

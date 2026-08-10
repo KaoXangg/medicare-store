@@ -25,65 +25,71 @@ export const getDashboard = async (req, res, next) => {
       lowStockProducts,
       reviewStats,
       reviewDist,
+      customersGrowthRaw,
+      productsGrowthRaw,
+      weeklyOrdersRaw,
+      avgOrderGrowthRaw,
     ] = await Promise.all([
-      query(`SELECT ISNULL(SUM(TotalAmount), 0) AS total FROM Orders WHERE Status != 'cancelled'`),
-      query(`SELECT COUNT(*) AS total FROM Orders`),
-      query(`SELECT COUNT(*) AS total FROM Users WHERE Role = 'user'`),
-      query(`SELECT COUNT(*) AS total FROM Products WHERE IsActive = 1`),
-      query(`SELECT COUNT(*) AS total FROM Categories WHERE IsActive = 1`),
+      query(`SELECT COALESCE(SUM(TotalAmount), 0) AS totalrevenue FROM Orders WHERE Status != 'cancelled'`),
+      query(`SELECT COUNT(*) AS totalorderscount FROM Orders`),
+      query(`SELECT COUNT(*) AS totalcustomers FROM Users WHERE Role = 'user'`),
+      query(`SELECT COUNT(*) AS totalproducts FROM Products WHERE IsActive = 1`),
+      query(`SELECT COUNT(*) AS totalcategories FROM Categories WHERE IsActive = 1`),
       query(
-        `SELECT TOP 10 o.*, u.FullName FROM Orders o
+        `SELECT o.*, u.FullName FROM Orders o
          JOIN Users u ON o.UserId = u.UserId
-         ORDER BY o.CreatedAt DESC`
+         ORDER BY o.CreatedAt DESC
+         LIMIT 10`
       ),
       query(
-        `SELECT FORMAT(CreatedAt, 'yyyy-MM') AS month,
+        `SELECT TO_CHAR(CreatedAt, 'YYYY-MM') AS month,
            SUM(TotalAmount) AS revenue,
            COUNT(*) AS orderCount
          FROM Orders
          WHERE Status != 'cancelled'
-           AND CreatedAt >= DATEADD(month, -6, GETUTCDATE())
-         GROUP BY FORMAT(CreatedAt, 'yyyy-MM')
+           AND CreatedAt >= (GETUTCDATE() - INTERVAL '6 months')
+         GROUP BY TO_CHAR(CreatedAt, 'YYYY-MM')
          ORDER BY month`
       ),
       query(
-        `SELECT FORMAT(CAST(CreatedAt AS DATE), 'dd/MM') AS day,
+        `SELECT TO_CHAR(CreatedAt::date, 'DD/MM') AS day,
            COUNT(*) AS orders
          FROM Orders
-         WHERE CreatedAt >= DATEADD(day, -7, GETUTCDATE())
-         GROUP BY CAST(CreatedAt AS DATE), FORMAT(CAST(CreatedAt AS DATE), 'dd/MM')
-         ORDER BY CAST(CreatedAt AS DATE)`
+         WHERE CreatedAt >= (GETUTCDATE() - INTERVAL '7 days')
+         GROUP BY CreatedAt::date, TO_CHAR(CreatedAt::date, 'DD/MM')
+         ORDER BY CreatedAt::date`
       ),
       query(
-        `SELECT TOP 5 c.Name AS name,
+        `SELECT c.Name AS name,
            COUNT(p.ProductId) AS count,
-           ISNULL(SUM(p.SoldCount * p.Price), 0) AS revenue
+           COALESCE(SUM(p.SoldCount * p.Price), 0) AS revenue
          FROM Categories c
          LEFT JOIN Products p ON p.CategoryId = c.CategoryId AND p.IsActive = 1
          GROUP BY c.Name
-         ORDER BY revenue DESC`
+         ORDER BY revenue DESC
+         LIMIT 5`
       ),
       query(`SELECT Status, COUNT(*) AS count FROM Orders GROUP BY Status`),
       query(
-        `SELECT ISNULL(SUM(TotalAmount), 0) AS revenue, COUNT(*) AS orders
+        `SELECT COALESCE(SUM(TotalAmount), 0) AS revenue, COUNT(*) AS orders
          FROM Orders
          WHERE CAST(CreatedAt AS DATE) = CAST(GETUTCDATE() AS DATE)
            AND Status != 'cancelled'`
       ),
       query(
-        `SELECT ISNULL(SUM(TotalAmount), 0) AS revenue, COUNT(*) AS orders
+        `SELECT COALESCE(SUM(TotalAmount), 0) AS revenue, COUNT(*) AS orders
          FROM Orders
-         WHERE CAST(CreatedAt AS DATE) = CAST(DATEADD(day, -1, GETUTCDATE()) AS DATE)
+         WHERE CAST(CreatedAt AS DATE) = CAST((GETUTCDATE() - INTERVAL '1 day') AS DATE)
            AND Status != 'cancelled'`
       ),
       query(
-        `SELECT TOP 10
+        `SELECT
            p.ProductId,
            p.Name,
            c.Name AS CategoryName,
-           (SELECT TOP 1 ImageUrl FROM ProductImages
+           (SELECT ImageUrl FROM ProductImages
             WHERE ProductId = p.ProductId
-            ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage,
+            ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage,
            SUM(od.Quantity) AS soldCount,
            SUM(od.Total)    AS revenue
          FROM OrderDetails od
@@ -91,19 +97,21 @@ export const getDashboard = async (req, res, next) => {
          JOIN Products p ON p.ProductId = od.ProductId
          LEFT JOIN Categories c ON c.CategoryId = p.CategoryId
          GROUP BY p.ProductId, p.Name, c.Name
-         ORDER BY revenue DESC`
+         ORDER BY revenue DESC
+         LIMIT 10`
       ),
       query(
-        `SELECT TOP 8
+        `SELECT
            c.Name AS name,
-           ISNULL(SUM(od.Total), 0) AS revenue,
-           ISNULL(SUM(od.Quantity), 0) AS soldCount
+           COALESCE(SUM(od.Total), 0) AS revenue,
+           COALESCE(SUM(od.Quantity), 0) AS soldCount
          FROM Categories c
          LEFT JOIN Products p  ON p.CategoryId  = c.CategoryId
          LEFT JOIN OrderDetails od ON od.ProductId = p.ProductId
          LEFT JOIN Orders o   ON o.OrderId    = od.OrderId AND o.Status != 'cancelled'
          GROUP BY c.Name
-         ORDER BY revenue DESC`
+         ORDER BY revenue DESC
+         LIMIT 8`
       ),
       query(
         `SELECT
@@ -113,7 +121,7 @@ export const getDashboard = async (req, res, next) => {
              ELSE 'Online'
            END AS name,
            COUNT(*)                        AS value,
-           ISNULL(SUM(TotalAmount), 0)     AS total
+           COALESCE(SUM(TotalAmount), 0)     AS total
          FROM Orders
          WHERE Status != 'cancelled'
          GROUP BY
@@ -124,25 +132,26 @@ export const getDashboard = async (req, res, next) => {
            END`
       ),
       query(
-        `SELECT FORMAT(CreatedAt, 'yyyy-MM') AS month,
+        `SELECT TO_CHAR(CreatedAt, 'YYYY-MM') AS month,
            COUNT(*) AS newCustomers,
            0        AS returning
          FROM Users
          WHERE Role = 'user'
-           AND CreatedAt >= DATEADD(month, -6, GETUTCDATE())
-         GROUP BY FORMAT(CreatedAt, 'yyyy-MM')
+           AND CreatedAt >= (GETUTCDATE() - INTERVAL '6 months')
+         GROUP BY TO_CHAR(CreatedAt, 'YYYY-MM')
          ORDER BY month`
       ),
       query(
-        `SELECT TOP 10
+        `SELECT
            u.UserId, u.FullName, u.Email, u.Avatar,
            COUNT(o.OrderId)              AS totalOrders,
-           ISNULL(SUM(o.TotalAmount), 0) AS totalSpent
+           COALESCE(SUM(o.TotalAmount), 0) AS totalSpent
          FROM Users u
          JOIN Orders o ON o.UserId = u.UserId AND o.Status != 'cancelled'
          WHERE u.Role = 'user'
          GROUP BY u.UserId, u.FullName, u.Email, u.Avatar
-         ORDER BY totalSpent DESC`
+         ORDER BY totalSpent DESC
+         LIMIT 10`
       ),
       query(
         `SELECT
@@ -152,14 +161,15 @@ export const getDashboard = async (req, res, next) => {
          FROM Products WHERE IsActive = 1`
       ),
       query(
-        `SELECT TOP 5 ProductId, Name, Stock
+        `SELECT ProductId, Name, Stock
          FROM Products
          WHERE IsActive = 1 AND Stock > 0 AND Stock <= 10
-         ORDER BY Stock ASC`
+         ORDER BY Stock ASC
+         LIMIT 5`
       ),
       query(
         `SELECT
-           ISNULL(AVG(CAST(Rating AS FLOAT)), 0) AS avg,
+           COALESCE(AVG(CAST(Rating AS FLOAT)), 0) AS avg,
            COUNT(*) AS total
          FROM Reviews`
       ),
@@ -168,6 +178,40 @@ export const getDashboard = async (req, res, next) => {
          FROM Reviews
          GROUP BY Rating
          ORDER BY Rating DESC`
+      ),
+      // ── Growth thật cho từng thẻ (so sánh theo khoảng thời gian thật,
+      //    không có sẵn snapshot lịch sử nên KHÔNG tính được cho tồn kho/đơn chờ xử lý) ──
+      query(
+        `SELECT
+           COUNT(*) AS now,
+           COUNT(*) FILTER (WHERE CreatedAt < date_trunc('month', GETUTCDATE())) AS monthago
+         FROM Users WHERE Role = 'user'`
+      ),
+      query(
+        `SELECT
+           COUNT(*) AS now,
+           COUNT(*) FILTER (WHERE CreatedAt < date_trunc('month', GETUTCDATE())) AS monthago
+         FROM Products WHERE IsActive = 1`
+      ),
+      query(
+        `SELECT
+           COUNT(*) FILTER (WHERE CreatedAt >= date_trunc('week', GETUTCDATE())) AS totalthisweek,
+           COUNT(*) FILTER (WHERE CreatedAt >= date_trunc('week', GETUTCDATE()) AND Status = 'completed') AS completedthisweek,
+           COUNT(*) FILTER (WHERE CreatedAt >= date_trunc('week', GETUTCDATE() - INTERVAL '7 days')
+                              AND CreatedAt <  date_trunc('week', GETUTCDATE())) AS totallastweek,
+           COUNT(*) FILTER (WHERE CreatedAt >= date_trunc('week', GETUTCDATE() - INTERVAL '7 days')
+                              AND CreatedAt <  date_trunc('week', GETUTCDATE())
+                              AND Status = 'completed') AS completedlastweek
+         FROM Orders`
+      ),
+      query(
+        `SELECT
+           COALESCE(AVG(TotalAmount) FILTER (
+             WHERE CreatedAt >= date_trunc('month', GETUTCDATE()) AND Status != 'cancelled'), 0) AS avgthismonth,
+           COALESCE(AVG(TotalAmount) FILTER (
+             WHERE CreatedAt >= date_trunc('month', GETUTCDATE() - INTERVAL '1 month')
+               AND CreatedAt <  date_trunc('month', GETUTCDATE()) AND Status != 'cancelled'), 0) AS avglastmonth
+         FROM Orders`
       ),
     ]);
 
@@ -184,17 +228,52 @@ export const getDashboard = async (req, res, next) => {
     reviewDist.recordset.forEach((r) => { distMap[r.Rating] = r.count; });
     const reviewDistArr = [5, 4, 3, 2, 1].map((s) => distMap[s] || 0);
 
+    // ── Growth thật cho từng thẻ ──
+    const pctChange = (now, prev) => {
+      now = Number(now) || 0;
+      prev = Number(prev) || 0;
+      if (prev === 0) return now > 0 ? 100 : 0;
+      return Math.round(((now - prev) / prev) * 100);
+    };
+
+    const custRow = customersGrowthRaw.recordset[0] || {};
+    const customersGrowth = pctChange(custRow.now, custRow.monthago);
+
+    const prodRow = productsGrowthRaw.recordset[0] || {};
+    const productsGrowth = pctChange(prodRow.now, prodRow.monthago);
+
+    const wkRow = weeklyOrdersRaw.recordset[0] || {};
+    const ordersGrowth = pctChange(wkRow.totalthisweek, wkRow.totallastweek);
+    const convThisWeek = Number(wkRow.totalthisweek) ? (Number(wkRow.completedthisweek) / Number(wkRow.totalthisweek)) * 100 : 0;
+    const convLastWeek = Number(wkRow.totallastweek) ? (Number(wkRow.completedlastweek) / Number(wkRow.totallastweek)) * 100 : 0;
+    const conversionGrowth = pctChange(convThisWeek, convLastWeek);
+
+    const avgRow = avgOrderGrowthRaw.recordset[0] || {};
+    const avgOrderGrowth = pctChange(avgRow.avgthismonth, avgRow.avglastmonth);
+
     res.json({
       success: true,
       data: {
         stats: {
-          totalRevenue:    revenue.recordset[0].total,
-          totalOrders:     orders.recordset[0].total,
-          totalCustomers:  customers.recordset[0].total,
-          totalProducts:   products.recordset[0].total,
-          totalCategories: categories.recordset[0].total,
+          totalRevenue:    revenue.recordset[0].totalrevenue,
+          totalOrders:     orders.recordset[0].totalorderscount,
+          totalCustomers:  customers.recordset[0].totalcustomers,
+          totalProducts:   products.recordset[0].totalproducts,
+          totalCategories: categories.recordset[0].totalcategories,
         },
         growth,
+        cardGrowth: {
+          orders: ordersGrowth,
+          customers: customersGrowth,
+          products: productsGrowth,
+          conversionRate: conversionGrowth,
+          avgOrderValue: avgOrderGrowth,
+          // Không có bảng lưu snapshot lịch sử tồn kho / trạng thái đơn theo ngày,
+          // nên KHÔNG thể tính growth thật cho 2 chỉ số này — trả null để frontend
+          // biết mà ẩn badge %, tránh hiện số bịa.
+          inventoryAlerts: null,
+          pendingOrders: null,
+        },
         orderStats: {
           pending:   statsMap.pending   || 0,
           confirmed: statsMap.confirmed || 0,
@@ -250,7 +329,7 @@ export const getUsers = async (req, res, next) => {
           VerifyRequested, PhoneVerifyRequested, CreatedAt, UpdatedAt, LastChangedFields, Avatar
        FROM Users ${where}
        ORDER BY CreatedAt DESC
-       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
+       LIMIT @limit OFFSET @offset`,
       params
     );
 
@@ -442,9 +521,9 @@ export const getAllProductsAdmin = async (req, res, next) => {
   try {
     const result = await query(
       `SELECT p.*, c.Name AS CategoryName, b.Name AS BrandName,
-        (SELECT TOP 1 ImageUrl FROM ProductImages
+        (SELECT ImageUrl FROM ProductImages
          WHERE ProductId = p.ProductId
-         ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage
+         ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage
        FROM Products p
        LEFT JOIN Categories c ON p.CategoryId = c.CategoryId
        LEFT JOIN Brands      b ON p.BrandId    = b.BrandId

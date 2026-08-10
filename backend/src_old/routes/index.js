@@ -1,0 +1,43 @@
+import { Router } from 'express';
+import authRoutes from './authRoutes.js';
+import productRoutes from './productRoutes.js';
+import categoryRoutes from './categoryRoutes.js';
+import brandRoutes from './brandRoutes.js';
+import cartRoutes from './cartRoutes.js';
+import orderRoutes from './orderRoutes.js';
+import couponRoutes from './couponRoutes.js';
+import reviewRoutes from './reviewRoutes.js';
+import homeRoutes from './homeRoutes.js';
+import adminRoutes from './adminRoutes.js';
+import bannerRoutes from './bannerRoutes.js';
+import contactRoutes from './contactRoutes.js';
+import newsletterRoutes from './newsletterRoutes.js';
+import wishlistRoutes from './wishlistRoutes.js';
+import notificationRoutes from './notificationRoutes.js';
+import activityRoutes from './activityRoutes.js';
+import pageRoutes from './pageRoutes.js';
+import warrantyRoutes from './warrantyRoutes.js';
+
+const router = Router();
+
+router.use('/auth', authRoutes);
+router.use('/products', productRoutes);
+router.use('/categories', categoryRoutes);
+router.use('/brands', brandRoutes);
+router.use('/banners', bannerRoutes);
+router.use('/contacts', contactRoutes);
+router.use('/newsletter', newsletterRoutes);
+router.use('/wishlist', wishlistRoutes);
+router.use('/cart', cartRoutes);
+router.use('/orders', orderRoutes);
+router.use('/coupons', couponRoutes);
+router.use('/reviews', reviewRoutes);
+router.use('/pages', pageRoutes);
+router.use('/home', homeRoutes);
+router.use('/notifications', notificationRoutes);
+router.use('/admin', adminRoutes);
+router.use('/activity', activityRoutes);
+router.use('/warranties', warrantyRoutes);
+
+
+export default router;
