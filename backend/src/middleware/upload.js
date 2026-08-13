@@ -45,3 +45,14 @@ export const uploadMultiple = (field, max = 5, type = 'products') => [
   (req, res, next) => { req.uploadType = type; next(); },
   upload.array(field, max),
 ];
+
+// Avatar dùng riêng memoryStorage (không ghi ra ổ đĩa) vì ảnh sẽ được
+// upload thẳng lên Supabase Storage trong controller — cần req.file.buffer,
+// không phải req.file.filename/path như các loại upload khác ở trên.
+const avatarMemoryUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: parseInt(process.env.MAX_FILE_SIZE || '5242880', 10) },
+  fileFilter,
+});
+
+export const uploadAvatarMemory = avatarMemoryUpload.single('avatar');

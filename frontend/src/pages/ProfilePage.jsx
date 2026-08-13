@@ -8,7 +8,7 @@ import {
   Save, ArrowRight, Calendar, ShieldCheck, BadgeCheck,
   Trash2, Clock, Crown, KeyRound, Sparkles, ChevronLeft, ChevronRight,
 } from 'lucide-react';
-import api from '../services/api';
+import api, { getImageUrl } from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import ProtectedRoute from '../components/auth/ProtectedRoute';
 import toast from 'react-hot-toast';
@@ -258,12 +258,14 @@ function Toggle({ checked, onChange, label, desc }) {
 
 function AvatarUploader({ user, onUpload, onRemove }) {
   const fileRef = useRef();
-  const [preview, setPreview] = useState(user?.Avatar || null);
+  const [preview, setPreview] = useState(user?.Avatar ? getImageUrl(user.Avatar) : null);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [imgError, setImgError] = useState(false);
 
   useEffect(() => {
-    setPreview(user?.Avatar || null);
+    setPreview(user?.Avatar ? getImageUrl(user.Avatar) : null);
+    setImgError(false);
   }, [user?.Avatar]);
 
   const initials = user?.FullName
@@ -278,6 +280,7 @@ function AvatarUploader({ user, onUpload, onRemove }) {
     reader.onload = async (evt) => {
       const base64 = evt.target.result;
       setPreview(base64);
+      setImgError(false);
       try {
         const fd = new FormData();
         fd.append('avatar', file);
@@ -292,7 +295,7 @@ function AvatarUploader({ user, onUpload, onRemove }) {
           toast.success('Đã cập nhật ảnh đại diện');
         } catch (err) {
           toast.error(err?.message ?? 'Không thể lưu ảnh');
-          setPreview(user?.Avatar || null);
+          setPreview(user?.Avatar ? getImageUrl(user.Avatar) : null);
         }
       } finally { setUploading(false); }
     };
@@ -330,8 +333,8 @@ function AvatarUploader({ user, onUpload, onRemove }) {
             onDragLeave={() => setDragOver(false)}
             onDrop={(e) => { e.preventDefault(); setDragOver(false); processFile(e.dataTransfer.files[0]); }}
           >
-            {preview
-              ? <img src={preview} alt="avatar" className="h-full w-full object-cover" />
+            {preview && !imgError
+              ? <img src={preview} alt="avatar" className="h-full w-full object-cover" onError={() => setImgError(true)} />
               : <div className="h-full w-full flex items-center justify-center bg-gradient-to-br from-blue-500 to-sky-600 text-white text-3xl sm:text-4xl font-black">{initials}</div>
             }
             <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity">

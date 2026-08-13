@@ -2,7 +2,7 @@ import { Router } from 'express';
 import * as auth from '../controllers/authController.js';
 import { authenticate } from '../middleware/auth.js';
 import { authLimiter } from '../middleware/security.js';
-import { uploadSingle } from '../middleware/upload.js';
+import { uploadAvatarMemory } from '../middleware/upload.js';
 import {
   registerRules,
   loginRules,
@@ -23,7 +23,7 @@ router.put('/profile', authenticate, auth.updateProfile);
 router.put('/change-password', authenticate, auth.changePassword);
 router.put('/change-email', authenticate, auth.changeEmail);
 router.put('/notifications', authenticate, auth.updateNotifications);
-router.post('/upload-avatar', authenticate, ...uploadSingle('avatar', 'avatars'), auth.uploadAvatar);
+router.post('/upload-avatar', authenticate, uploadAvatarMemory, auth.uploadAvatar);
 router.post('/request-verify', authenticate, auth.requestVerify);
 router.post('/request-verify-phone', authenticate, auth.requestVerifyPhone);
 
