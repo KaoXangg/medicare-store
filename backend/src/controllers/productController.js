@@ -127,7 +127,7 @@ export const getProducts = async (req, res, next) => {
        LEFT JOIN Brands b ON p.BrandId = b.BrandId ${where}`,
       params
     );
-    const total = countResult.recordset[0].total;
+    const total = countResult.recordset[0].Total;
 
     const result = await query(
       `SELECT ${productSelect} FROM Products p
