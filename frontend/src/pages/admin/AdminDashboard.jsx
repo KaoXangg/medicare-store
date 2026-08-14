@@ -41,18 +41,9 @@ const REVENUE_FILTERS = [
   { label: '1 Năm',   days: 365 },
 ];
 
-const HEATMAP_DAYS  = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 const HEATMAP_HOURS = ['08h', '10h', '12h', '14h', '16h', '18h', '20h', '22h'];
-const SUPPLIER_NAMES = ['MediSupplies', 'HealthLink', 'VitaCare', 'BioSource', 'Apex Medical'];
-const CITY_NAMES = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng', 'Hải Phòng', 'Cần Thơ'];
 
 const t = (dark, darkCls, lightCls) => dark ? darkCls : lightCls;
-
-const buildHeatmap = () =>
-  HEATMAP_DAYS.map((day) => ({
-    day,
-    values: HEATMAP_HOURS.map(() => Math.floor(20 + Math.random() * 70)),
-  }));
 
 const getInitials = (name) => {
   if (!name) return '??';
@@ -103,7 +94,6 @@ export default function AdminDashboard() {
   const [revenueFilter, setRevenueFilter] = useState(REVENUE_FILTERS[3]);
   const [vipSearch, setVipSearch] = useState('');
   const [vipSort, setVipSort] = useState({ key: 'totalSpent', direction: 'desc' });
-  const [systemMetrics, setSystemMetrics] = useState({ cpu: 24, ram: 52, api: 92, db: 4, storage: 64 });
   const [chartsReady, setChartsReady] = useState(false);
 
   // Trì hoãn render ResponsiveContainer 1 tick sau khi layout đã ổn định,
@@ -134,20 +124,6 @@ export default function AdminDashboard() {
   useEffect(() => { fetchDashboardData(); }, [fetchDashboardData]);
 
   
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSystemMetrics((prev) => ({
-        cpu:     Math.min(Math.max(prev.cpu     + (Math.random() > 0.5 ? 3  : -3),  12), 45),
-        ram:     Math.min(Math.max(prev.ram     + (Math.random() > 0.5 ? 1  : -1),  48), 56),
-        api:     Math.min(Math.max(prev.api     + (Math.random() > 0.5 ? 4  : -4),  78), 110),
-        db:      Math.min(Math.max(prev.db      + (Math.random() > 0.5 ? 1  : -1),   2), 8),
-        storage: prev.storage,
-      }));
-    }, 5000);
-    return () => clearInterval(timer);
-  }, []);
-
-  
   const totalRevenue   = data?.stats?.totalRevenue   || 0;
   const totalOrders    = data?.stats?.totalOrders    || 0;
   const totalCustomers = data?.stats?.totalCustomers || 0;
@@ -162,32 +138,26 @@ export default function AdminDashboard() {
   
   const revenueChartData = useMemo(() => {
     if (!data) return [];
-    const avg = totalOrders ? totalRevenue / totalOrders : 1250000;
-    if (revenueFilter.days === 7) {
-      return (data.orderChart || []).map((item) => {
-        const rev = (item.orders || 0) * avg;
-        return { label: item.day, revenue: Math.round(rev), profit: Math.round(rev * 0.62), cost: Math.round(rev * 0.38) };
+    // 7 và 30 ngày: dùng đúng doanh thu thật theo ngày (đã lấp đủ ngày trống ở backend)
+    if (revenueFilter.days === 7 || revenueFilter.days === 30) {
+      const daily = data.dailyChart || [];
+      const slice = revenueFilter.days === 7 ? daily.slice(-7) : daily;
+      return slice.map((item) => {
+        const rev = item.revenue || 0;
+        return { label: item.label, revenue: rev, profit: Math.round(rev * 0.62), cost: Math.round(rev * 0.38) };
       });
     }
-    if (revenueFilter.days === 30) {
-      const base = data.orderChart || [];
-      return Array.from({ length: 30 }, (_, i) => {
-        const d = new Date();
-        d.setDate(d.getDate() - (29 - i));
-        const lbl = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
-        const match = base.find((x) => x.day === lbl);
-        const orders = match ? match.orders : Math.max(1, Math.round(avg / 1800000));
-        const rev = orders * avg * (0.82 + Math.random() * 0.28);
-        return { label: lbl, revenue: Math.round(rev), profit: Math.round(rev * 0.62), cost: Math.round(rev * 0.38) };
-      });
-    }
-    return (data.revenueChart || []).map((item) => ({
+    // 90/180/365 ngày: dùng biểu đồ theo tháng thật (12 tháng gần nhất),
+    // cắt đúng số tháng tương ứng bộ lọc
+    const monthsToShow = { 90: 3, 180: 6, 365: 12 }[revenueFilter.days] || 12;
+    const months = (data.revenueChart || []).slice(-monthsToShow);
+    return months.map((item) => ({
       label:   item.month,
       revenue: item.revenue || 0,
       profit:  Math.round((item.revenue || 0) * 0.62),
       cost:    Math.round((item.revenue || 0) * 0.38),
     }));
-  }, [data, revenueFilter, totalOrders, totalRevenue]);
+  }, [data, revenueFilter]);
 
   const revenueStats = useMemo(() => {
     if (!revenueChartData.length) return { total: 0, avg: 0, max: 0, min: 0 };
@@ -199,12 +169,12 @@ export default function AdminDashboard() {
   const sparklineData = useMemo(() => {
     if (!data) return {};
     return {
-      revenue:   (data.revenueChart  || []).map((x) => x.revenue     || 0),
-      orders:    (data.orderChart    || []).map((x) => x.orders       || 0),
+      revenue:   (data.dailyChart    || []).slice(-7).map((x) => x.revenue      || 0),
+      orders:    (data.dailyChart    || []).slice(-7).map((x) => x.orders       || 0),
       customers: (data.customerChart || []).map((x) => x.newCustomers || 0),
-      products:  [42, 45, 48, 52, 55, 60],
+      products:  (data.dailyChart    || []).slice(-7).map(() => totalProducts),
     };
-  }, [data]);
+  }, [data, totalProducts]);
 
   const funnelData = useMemo(() => {
     if (!data?.orderStats) return [];
@@ -220,7 +190,30 @@ export default function AdminDashboard() {
     ];
   }, [data]);
 
-  const heatmapData = useMemo(() => buildHeatmap(), []);
+  const notifications = useMemo(() => {
+    if (!data) return [];
+    const list = [];
+    const outOfStock = data.inventoryStats?.outOfStock || 0;
+    const lowStock = data.inventoryStats?.lowStock || 0;
+    const pending = data.orderStats?.pending || 0;
+    const pendingVerify = data.pendingVerifyCount || 0;
+    if (outOfStock > 0) {
+      list.push({ title: 'Sản phẩm đã hết hàng', type: 'critical', description: `${outOfStock} sản phẩm đang hết hàng, cần nhập thêm ngay.`, icon: AlertTriangle });
+    }
+    if (lowStock > 0) {
+      list.push({ title: 'Tồn kho sắp hết', type: 'warning', description: `${lowStock} sản phẩm còn dưới 10 đơn vị trong kho.`, icon: TrendingDown });
+    }
+    if (pending > 0) {
+      list.push({ title: 'Đơn hàng chờ xử lý', type: 'info', description: `${pending} đơn hàng đang chờ xác nhận.`, icon: Clock4 });
+    }
+    if (pendingVerify > 0) {
+      list.push({ title: 'Tài khoản chờ xác thực', type: 'info', description: `${pendingVerify} tài khoản đang chờ admin xác thực.`, icon: BellRing });
+    }
+    return list;
+  }, [data]);
+
+  const heatmapData = data?.heatmap || [];
+  const heatmapInsight = data?.heatmapInsight || { peakLabel: '—', peakValue: 0, lowLabel: '—', lowValue: 0, avgPct: 0 };
 
   const filteredVipCustomers = useMemo(() => {
     if (!data?.vipCustomers) return [];
@@ -540,9 +533,9 @@ export default function AdminDashboard() {
 
             <div className="grid grid-cols-3 gap-2">
               {[
-                { label: 'Đỉnh Cao',  value: 'T6 14h', color: dark ? 'text-violet-400' : 'text-violet-600', bg: dark ? 'bg-violet-500/10 border-violet-500/20' : 'bg-violet-50 border-violet-200' },
-                { label: 'Thấp Nhất', value: 'CN 08h', color: dark ? 'text-slate-400'  : 'text-slate-500',  bg: dark ? 'bg-slate-800 border-slate-700'         : 'bg-slate-100 border-slate-200' },
-                { label: 'TB / Ô',    value: '54%',     color: dark ? 'text-sky-400'    : 'text-sky-600',    bg: dark ? 'bg-sky-500/10 border-sky-500/20'       : 'bg-sky-50 border-sky-200' },
+                { label: 'Đỉnh Cao',  value: heatmapInsight.peakLabel, color: dark ? 'text-violet-400' : 'text-violet-600', bg: dark ? 'bg-violet-500/10 border-violet-500/20' : 'bg-violet-50 border-violet-200' },
+                { label: 'Thấp Nhất', value: heatmapInsight.lowLabel,  color: dark ? 'text-slate-400'  : 'text-slate-500',  bg: dark ? 'bg-slate-800 border-slate-700'         : 'bg-slate-100 border-slate-200' },
+                { label: 'TB / Ô',    value: `${heatmapInsight.avgPct}%`, color: dark ? 'text-sky-400' : 'text-sky-600',    bg: dark ? 'bg-sky-500/10 border-sky-500/20'       : 'bg-sky-50 border-sky-200' },
               ].map((s) => (
                 <div key={s.label} className={`rounded-xl border p-3 text-center ${s.bg}`}>
                   <p className={`text-[9px] uppercase tracking-widest font-semibold ${txt4}`}>{s.label}</p>
@@ -600,7 +593,7 @@ export default function AdminDashboard() {
             <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${dark ? 'bg-violet-500/8 border-violet-500/15' : 'bg-violet-50 border-violet-100'}`}>
               <Zap size={14} className={dark ? 'text-violet-400' : 'text-violet-500'} />
               <p className={`text-xs ${dark ? 'text-violet-300' : 'text-violet-700'}`}>
-                <span className="font-bold">Thứ Sáu 14h–16h</span> là khung giờ vàng — lượng mua cao hơn TB <span className="font-bold">38%</span>
+                <span className="font-bold">{heatmapInsight.peakLabel}</span> là khung giờ vàng — cường độ mua cao nhất, đạt <span className="font-bold">{heatmapInsight.peakValue}%</span> so với đỉnh
               </p>
             </div>
           </div>
@@ -714,11 +707,10 @@ export default function AdminDashboard() {
                   <div key={idx} className={`flex items-center justify-between rounded-2xl border p-3 text-sm ${cardSub} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                     <div className="min-w-0 flex-1 pr-3">
                       <p className={`font-semibold truncate ${txt1}`}>{item.Name}</p>
-                      <p className={`text-[11px] mt-0.5 ${txt4}`}>NCC: {SUPPLIER_NAMES[idx % SUPPLIER_NAMES.length]}</p>
+                      <p className={`text-[11px] mt-0.5 ${txt4}`}>{item.CategoryName || 'Chưa phân loại'}</p>
                     </div>
                     <div className="text-right shrink-0">
                       <p className={`font-black text-sm ${item.Stock <= 5 ? 'text-rose-500' : 'text-amber-500'}`}>{item.Stock} còn</p>
-                      <p className={`text-[11px] ${txt4}`}>{Math.max(1, item.Stock)} ngày</p>
                     </div>
                   </div>
                 ))}
@@ -737,9 +729,9 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             <div className="grid gap-3 grid-cols-1 sm:grid-cols-3 xl:grid-cols-1">
               {[
-                { label: 'Tỷ Lệ Giữ Chân',   value: '74.5%',   icon: ShieldCheck },
-                { label: 'Tỷ Lệ Chuyển Đổi', value: '3.2%',    icon: TrendingUp  },
-                { label: 'Giá Trị Vòng Đời',  value: formatPrice(Math.round(totalRevenue / Math.max(1, totalCustomers * 2))), icon: Users },
+                { label: 'Tỷ Lệ Giữ Chân',   value: `${data.retentionRate || 0}%`, icon: ShieldCheck },
+                { label: 'Tỷ Lệ Chuyển Đổi', value: `${conversionRate}%`,          icon: TrendingUp  },
+                { label: 'Doanh Thu / Khách', value: formatPrice(Math.round(totalRevenue / Math.max(1, totalCustomers))), icon: Users },
               ].map((metric) => (
                 <div key={metric.label} className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                   <div className={`flex items-center gap-2 mb-1.5 ${txt3}`}>
@@ -948,67 +940,75 @@ export default function AdminDashboard() {
           </div>
         </AdminPanel>
 
-        <AdminPanel title="Bán Hàng Theo Khu Vực" subtitle="Top tỉnh thành theo doanh thu">
+        <AdminPanel title="Bán Hàng Theo Khu Vực" subtitle="Top tỉnh thành theo doanh thu (trích xuất từ địa chỉ giao hàng)">
           <div className="space-y-2.5">
-            {CITY_NAMES.map((city, idx) => {
-              const rev = Math.round(totalRevenue * ((CITY_NAMES.length - idx) / 22));
-              const maxRev = Math.round(totalRevenue * (CITY_NAMES.length / 22));
-              const pct = Math.round((rev / (maxRev || 1)) * 100);
-              return (
-                <div key={city} className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <div>
-                      <p className={`font-semibold text-sm ${txt1}`}>{city}</p>
-                      <p className={`text-[11px] ${txt4}`}>#{idx + 1} khu vực</p>
+            {(data.cityRevenue || []).length === 0 && (
+              <p className={`text-center text-sm py-6 ${txt4}`}>Chưa có dữ liệu khu vực.</p>
+            )}
+            {(() => {
+              const maxCityRev = Math.max(...(data.cityRevenue || []).map((c) => c.revenue || 0), 1);
+              return (data.cityRevenue || []).map((c, idx) => {
+                const pct = Math.round(((c.revenue || 0) / maxCityRev) * 100);
+                return (
+                  <div key={c.city} className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
+                    <div className="flex items-center justify-between mb-2">
+                      <div>
+                        <p className={`font-semibold text-sm ${txt1}`}>{c.city}</p>
+                        <p className={`text-[11px] ${txt4}`}>#{idx + 1} khu vực · {c.ordercount || 0} đơn</p>
+                      </div>
+                      <span className={`font-black text-sm ${txt1}`}>{formatPrice(c.revenue || 0)}</span>
                     </div>
-                    <span className={`font-black text-sm ${txt1}`}>{formatPrice(rev)}</span>
+                    <div className={`h-1.5 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                      <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-400" style={{ width: `${pct}%` }} />
+                    </div>
                   </div>
-                  <div className={`h-1.5 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                    <div className="h-full rounded-full bg-gradient-to-r from-sky-500 to-blue-400" style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </AdminPanel>
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
-        <AdminPanel title="Phân Tích Nhà Cung Cấp" subtitle="Đóng góp doanh thu và kho hàng theo nhà cung cấp">
+        <AdminPanel title="Phân Tích Thương Hiệu" subtitle="Đóng góp doanh thu và kho hàng theo thương hiệu">
           <div className="space-y-3">
-            {SUPPLIER_NAMES.map((supplier, idx) => {
-              const revenue = Math.round(totalRevenue * ((SUPPLIER_NAMES.length - idx) / 24));
-              const products = 12 + idx * 4;
-              const pct = Math.max(45, 100 - idx * 12);
-              return (
-                <div key={supplier} className={`rounded-2xl border p-4 transition ${card} ${dark ? 'hover:border-sky-500/50' : 'hover:border-sky-400 hover:shadow-sm'}`}>
-                  <div className="flex items-center justify-between gap-3 mb-2">
-                    <div>
-                      <p className={`font-semibold text-sm ${txt1}`}>{supplier}</p>
-                      <p className={`text-[11px] ${txt4}`}>Đóng Góp Doanh Thu</p>
+            {(data.brandRevenue || []).length === 0 && (
+              <p className={`text-center text-sm py-6 ${txt4}`}>Chưa có dữ liệu thương hiệu.</p>
+            )}
+            {(() => {
+              const maxBrandRev = Math.max(...(data.brandRevenue || []).map((b) => b.revenue || 0), 1);
+              return (data.brandRevenue || []).map((b) => {
+                const pct = Math.round(((b.revenue || 0) / maxBrandRev) * 100);
+                return (
+                  <div key={b.BrandName} className={`rounded-2xl border p-4 transition ${card} ${dark ? 'hover:border-sky-500/50' : 'hover:border-sky-400 hover:shadow-sm'}`}>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <div>
+                        <p className={`font-semibold text-sm ${txt1}`}>{b.BrandName}</p>
+                        <p className={`text-[11px] ${txt4}`}>Đóng Góp Doanh Thu</p>
+                      </div>
+                      <p className={`font-black text-sm shrink-0 ${txt1}`}>{formatPrice(b.revenue || 0)}</p>
                     </div>
-                    <p className={`font-black text-sm shrink-0 ${txt1}`}>{formatPrice(revenue)}</p>
+                    <div className={`h-1.5 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                      <div className="h-full rounded-full bg-sky-500/60" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className={`mt-1.5 flex items-center justify-between text-[11px] ${txt4}`}>
+                      <span>{b.productcount || 0} sản phẩm</span><span>{pct}%</span>
+                    </div>
                   </div>
-                  <div className={`h-1.5 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                    <div className="h-full rounded-full bg-sky-500/60" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className={`mt-1.5 flex items-center justify-between text-[11px] ${txt4}`}>
-                    <span>{products} sản phẩm</span><span>{pct}%</span>
-                  </div>
-                </div>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </AdminPanel>
 
-        <AdminPanel title="Giám Sát Thực Tế" subtitle="Tín hiệu sử dụng và xử lý trực tiếp">
+        <AdminPanel title="Giám Sát Thực Tế" subtitle="Chỉ số kinh doanh thật cập nhật hôm nay">
           <div className="space-y-4">
             <div className="grid gap-3 grid-cols-2">
               {[
-                { label: 'Người Dùng Online',      value: 46,                                                                                                            icon: Users       },
-                { label: 'Phiên Hoạt Động',        value: 18,                                                                                                            icon: Activity    },
-                { label: 'Đơn Hàng Hôm Nay',      value: (data.orderStats?.confirmed || 0) + (data.orderStats?.shipping || 0) + (data.orderStats?.completed || 0),     icon: ShoppingBag },
-                { label: 'Thanh Toán Đang Xử Lý', value: data.paymentStats?.reduce((s, x) => s + (x.value || 0), 0) || 0,                                              icon: CreditCard  },
+                { label: 'Khách Hàng Mới Hôm Nay', value: data.today?.newCustomers || 0,                                                                              icon: Users       },
+                { label: 'Đánh Giá Mới Hôm Nay',   value: data.today?.newReviews   || 0,                                                                              icon: Star        },
+                { label: 'Đơn Hàng Hôm Nay',       value: data.today?.newOrders    || 0,                                                                              icon: ShoppingBag },
+                { label: 'Thanh Toán Đã Ghi Nhận', value: data.paymentStats?.reduce((s, x) => s + (x.value || 0), 0) || 0,                                            icon: CreditCard  },
               ].map((item) => (
                 <div key={item.label} className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                   <div className={`flex items-center gap-2 mb-2 ${txt3}`}>
@@ -1021,27 +1021,30 @@ export default function AdminDashboard() {
             </div>
 
             <div className={`rounded-2xl border p-5 space-y-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
-              <h3 className={`text-xs font-bold uppercase tracking-[0.24em] ${txt4}`}>Tài Nguyên Hệ Thống</h3>
+              <h3 className={`text-xs font-bold uppercase tracking-[0.24em] ${txt4}`}>Trạng Thái Vận Hành</h3>
               {[
-                { label: 'CPU',            value: systemMetrics.cpu,     max: 100, color: '#3B82F6', suffix: '%'      },
-                { label: 'RAM',            value: systemMetrics.ram,     max: 100, color: '#8B5CF6', suffix: '%'      },
-                { label: 'API',            value: systemMetrics.api,     max: 200, color: '#10B981', suffix: ' req/s' },
-                { label: 'Cơ sở dữ liệu', value: systemMetrics.db,      max: 20,  color: '#F59E0B', suffix: ' ms'    },
-                { label: 'Lưu trữ',        value: systemMetrics.storage, max: 100, color: '#EF4444', suffix: '%'      },
-              ].map((m) => (
-                <div key={m.label}>
-                  <div className={`flex items-center justify-between text-xs mb-1.5 ${txt2}`}>
-                    <span className="font-semibold">{m.label}</span>
-                    <span className={`font-black ${txt1}`}>{m.value}{m.suffix}</span>
+                { label: 'Đơn chờ xử lý',        value: data.orderStats?.pending   || 0, max: Math.max(totalOrders, 1), color: '#F59E0B' },
+                { label: 'Đơn đang giao',        value: data.orderStats?.shipping  || 0, max: Math.max(totalOrders, 1), color: '#8B5CF6' },
+                { label: 'Sản phẩm sắp hết hàng', value: data.inventoryStats?.lowStock   || 0, max: Math.max(totalProducts, 1), color: '#F59E0B' },
+                { label: 'Sản phẩm hết hàng',     value: data.inventoryStats?.outOfStock || 0, max: Math.max(totalProducts, 1), color: '#EF4444' },
+                { label: 'Yêu cầu xác thực chờ duyệt', value: data.pendingVerifyCount || 0, max: Math.max(totalCustomers, 1), color: '#3B82F6' },
+              ].map((m) => {
+                const pct = Math.min(100, Math.round((m.value / m.max) * 100));
+                return (
+                  <div key={m.label}>
+                    <div className={`flex items-center justify-between text-xs mb-1.5 ${txt2}`}>
+                      <span className="font-semibold">{m.label}</span>
+                      <span className={`font-black ${txt1}`}>{m.value}</span>
+                    </div>
+                    <div className={`h-2 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
+                      <div
+                        className="h-full rounded-full transition-all duration-1000"
+                        style={{ width: `${pct}%`, backgroundColor: m.color }}
+                      />
+                    </div>
                   </div>
-                  <div className={`h-2 rounded-full ${dark ? 'bg-slate-800' : 'bg-slate-200'}`}>
-                    <div
-                      className="h-full rounded-full transition-all duration-1000"
-                      style={{ width: `${Math.min(100, (m.value / m.max) * 100)}%`, backgroundColor: m.color }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         </AdminPanel>
@@ -1117,23 +1120,22 @@ export default function AdminDashboard() {
       </div>
 
       <div className="flex flex-col gap-6">
-        <AdminPanel title="Trung Tâm Thông Báo" subtitle="Cảnh báo, lỗi và vấn đề ưu tiên cao">
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              { title: 'Tồn kho vượt ngưỡng thấp',      type: 'critical', description: '5 sản phẩm cần nhập thêm trong 24 giờ tới.',  icon: AlertTriangle },
-              { title: 'Lỗi thanh toán tăng đột biến',  type: 'warning',  description: 'Lỗi thanh toán tăng 18% trên cổng VNPay.',    icon: TrendingDown  },
-              { title: 'Banner khuyến mãi hết hạn',     type: 'warning',  description: 'Banner quảng cáo chính đã hết hạn hiển thị.', icon: BellRing      },
-              { title: 'Yêu cầu hỗ trợ đang chờ duyệt',type: 'info',     description: '12 yêu cầu hỗ trợ mới đang chờ xem xét.',    icon: Clock4        },
-            ].map((item) => (
-              <div key={item.title} className={`flex flex-col gap-3 rounded-2xl p-4 ${NOTIFICATION_SEVERITY[item.type]}`}>
-                <item.icon size={18} className="shrink-0" />
-                <div>
-                  <p className={`font-semibold text-sm ${notifTitle}`}>{item.title}</p>
-                  <p className={`mt-1 text-xs leading-relaxed ${notifDesc}`}>{item.description}</p>
+        <AdminPanel title="Trung Tâm Thông Báo" subtitle="Cảnh báo thật dựa trên dữ liệu hệ thống hiện tại">
+          {notifications.length === 0 ? (
+            <p className={`text-center text-sm py-6 ${txt4}`}>Không có cảnh báo nào — hệ thống đang vận hành ổn định.</p>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {notifications.map((item) => (
+                <div key={item.title} className={`flex flex-col gap-3 rounded-2xl p-4 ${NOTIFICATION_SEVERITY[item.type]}`}>
+                  <item.icon size={18} className="shrink-0" />
+                  <div>
+                    <p className={`font-semibold text-sm ${notifTitle}`}>{item.title}</p>
+                    <p className={`mt-1 text-xs leading-relaxed ${notifDesc}`}>{item.description}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </AdminPanel>
 
         <AdminPanel id="banner-settings" title="Cài Đặt Nội Dung" subtitle="Quản lý banner và hình ảnh trang hiển thị">
