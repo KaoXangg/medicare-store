@@ -4,14 +4,13 @@ import { getEffectivePrice } from '../utils/helpers.js';
 const safeQuery = (sql) => query(sql).catch(() => ({ recordset: [] }));
 
 const FLASH_SALE_FALLBACK_SQL = `
-  SELECT p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice, p.Stock, p.AverageRating, p.ReviewCount,
-    (SELECT ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage
+  SELECT TOP 8 p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice, p.Stock, p.AverageRating, p.ReviewCount,
+    (SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage
    FROM Products p
    LEFT JOIN Categories c ON p.CategoryId = c.CategoryId
    WHERE p.IsActive = 1 AND (p.CategoryId IS NULL OR c.IsActive = 1)
      AND p.SalePrice IS NOT NULL AND p.SalePrice < p.Price
    ORDER BY (p.Price - p.SalePrice) DESC
-   LIMIT 8
 `;
 
 export const getHomeData = async (req, res, next) => {
@@ -24,7 +23,7 @@ export const getHomeData = async (req, res, next) => {
       // Ưu tiên danh sách sản phẩm admin ghim tay trong trang Flash Sale
       safeQuery(
         `SELECT p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice, p.Stock, p.AverageRating, p.ReviewCount,
-          (SELECT ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder LIMIT 1) AS PrimaryImage
+          (SELECT TOP 1 ImageUrl FROM ProductImages WHERE ProductId = p.ProductId ORDER BY IsPrimary DESC, SortOrder) AS PrimaryImage
          FROM FlashSaleItems fsi
          JOIN Products p ON p.ProductId = fsi.ProductId
          WHERE p.IsActive = 1

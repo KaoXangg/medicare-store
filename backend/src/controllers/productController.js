@@ -95,11 +95,11 @@ export const getProducts = async (req, res, next) => {
       params.search = `%${search}%`;
     }
     if (category) {
-      where += ' AND (c.Slug = @category OR p.CategoryId = TRY_CAST_INT(@category))';
+      where += ' AND (c.Slug = @category OR p.CategoryId = TRY_CAST(@category AS INT))';
       params.category = category;
     }
     if (brand) {
-      where += ' AND (b.Slug = @brand OR p.BrandId = TRY_CAST_INT(@brand))';
+      where += ' AND (b.Slug = @brand OR p.BrandId = TRY_CAST(@brand AS INT))';
       params.brand = brand;
     }
     if (minPrice) {
@@ -127,14 +127,14 @@ export const getProducts = async (req, res, next) => {
        LEFT JOIN Brands b ON p.BrandId = b.BrandId ${where}`,
       params
     );
-    const total = countResult.recordset[0].Total;
+    const total = countResult.recordset[0].total;
 
     const result = await query(
       `SELECT ${productSelect} FROM Products p
        LEFT JOIN Categories c ON p.CategoryId = c.CategoryId
        LEFT JOIN Brands b ON p.BrandId = b.BrandId
        ${where} ORDER BY ${orderBy}
-       LIMIT @limit OFFSET @offset`,
+       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
       params
     );
 
@@ -232,8 +232,8 @@ export const createProduct = async (req, res, next) => {
 
     const result = await query(
       `INSERT INTO Products (CategoryId, BrandId, Name, Slug, Description, Specifications, Price, SalePrice, Stock, SKU, IsFeatured, IsPopular)
-       VALUES (@categoryId, @brandId, @name, @productSlug, @description, @specs, @price, @salePrice, @stock, @sku, @isFeatured, @isPopular)
-       RETURNING *`,
+       OUTPUT INSERTED.*
+       VALUES (@categoryId, @brandId, @name, @productSlug, @description, @specs, @price, @salePrice, @stock, @sku, @isFeatured, @isPopular)`,
       {
         categoryId: parseNum(body.categoryId),
         brandId: parseNum(body.brandId),
@@ -331,8 +331,8 @@ export const setProductVisibility = async (req, res, next) => {
 
     const result = await query(
       `UPDATE Products SET IsActive = @isActive, UpdatedAt = GETUTCDATE()
-       WHERE ProductId = @id
-       RETURNING ProductId, Name, IsActive`,
+       OUTPUT INSERTED.ProductId, INSERTED.Name, INSERTED.IsActive
+       WHERE ProductId = @id`,
       { id, isActive: isActive ? 1 : 0 }
     );
     if (!result.recordset[0]) {
@@ -387,10 +387,10 @@ export const searchSuggest = async (req, res, next) => {
     const q = (req.query.q || '').trim();
     if (!q) return res.json({ success: true, data: [] });
     const result = await query(
-      `SELECT p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice,
-        (SELECT ImageUrl FROM ProductImages pi WHERE pi.ProductId = p.ProductId ORDER BY pi.IsPrimary DESC LIMIT 1) AS PrimaryImage
+      `SELECT TOP 8 p.ProductId, p.Name, p.Slug, p.Price, p.SalePrice,
+        (SELECT TOP 1 ImageUrl FROM ProductImages pi WHERE pi.ProductId = p.ProductId ORDER BY pi.IsPrimary DESC) AS PrimaryImage
        FROM Products p WHERE p.IsActive = 1 AND (p.Name LIKE @search OR p.SKU LIKE @search)
-       ORDER BY p.SoldCount DESC LIMIT 8`,
+       ORDER BY p.SoldCount DESC`,
       { search: `%${q}%` }
     );
     res.json({ success: true, data: result.recordset });

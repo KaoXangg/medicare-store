@@ -3,9 +3,6 @@ import jwt from 'jsonwebtoken';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/db.js';
 import { sendEmail, passwordResetEmail } from '../utils/email.js';
-import { supabase } from '../config/supabase.js';
-
-const AVATAR_BUCKET = 'avatars';
 
 const signToken = (userId) =>
   jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -76,8 +73,8 @@ export const register = async (req, res, next) => {
     const hash = await bcrypt.hash(password, 12);
     const result = await query(
       `INSERT INTO Users (Email, PasswordHash, FullName, Phone, IdCard)
-       VALUES (@email, @hash, @fullName, @phone, @idCard)
-       RETURNING UserId, Email, FullName, Phone, IdCard, Role`,
+       OUTPUT INSERTED.UserId, INSERTED.Email, INSERTED.FullName, INSERTED.Phone, INSERTED.IdCard, INSERTED.Role
+       VALUES (@email, @hash, @fullName, @phone, @idCard)`,
       { email, hash, fullName, phone: phone || null, idCard: idCard || null }
     );
     const user = result.recordset[0];
@@ -274,47 +271,10 @@ export const uploadAvatar = async (req, res, next) => {
     if (!req.file) {
       return res.status(400).json({ success: false, message: 'Không có file ảnh nào được gửi lên' });
     }
-
-    // req.file.buffer yêu cầu multer dùng memoryStorage (không phải diskStorage)
-    if (!req.file.buffer) {
-      return res.status(500).json({
-        success: false,
-        message: 'Cấu hình upload sai: multer cần dùng memoryStorage để lấy file.buffer',
-      });
-    }
-
-    const ext = (req.file.originalname.split('.').pop() || 'jpg').toLowerCase();
-    const fileName = `${req.user.UserId}/${uuidv4()}.${ext}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from(AVATAR_BUCKET)
-      .upload(fileName, req.file.buffer, {
-        contentType: req.file.mimetype,
-        upsert: true,
-      });
-
-    if (uploadError) {
-      return res.status(500).json({ success: false, message: 'Không thể tải ảnh lên Supabase Storage', error: uploadError.message });
-    }
-
-    const { data: publicUrlData } = supabase.storage.from(AVATAR_BUCKET).getPublicUrl(fileName);
-    const avatarUrl = publicUrlData.publicUrl;
-
-    // Xoá avatar cũ trên Supabase Storage (nếu có) để tránh rác — không chặn response nếu lỗi
-    try {
-      const prev = await query('SELECT Avatar FROM Users WHERE UserId = @userId', { userId: req.user.UserId });
-      const prevAvatar = prev.recordset[0]?.Avatar;
-      if (prevAvatar && prevAvatar.includes(`/${AVATAR_BUCKET}/`)) {
-        const prevPath = prevAvatar.split(`/${AVATAR_BUCKET}/`)[1];
-        if (prevPath) await supabase.storage.from(AVATAR_BUCKET).remove([prevPath]);
-      }
-    } catch {
-      // bỏ qua lỗi dọn rác, không ảnh hưởng luồng chính
-    }
-
+    const avatarPath = `/uploads/avatars/${req.file.filename}`;
     await query(
       'UPDATE Users SET Avatar = @avatar, UpdatedAt = GETUTCDATE() WHERE UserId = @userId',
-      { avatar: avatarUrl, userId: req.user.UserId }
+      { avatar: avatarPath, userId: req.user.UserId }
     );
     const result = await query(
       `SELECT UserId, Email, FullName, Phone, Address, Avatar, Role, DateOfBirth
@@ -324,7 +284,7 @@ export const uploadAvatar = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Cập nhật ảnh đại diện thành công',
-      data: { avatarUrl, user: result.recordset[0] },
+      data: { avatarUrl: avatarPath, user: result.recordset[0] },
     });
   } catch (err) {
     next(err);

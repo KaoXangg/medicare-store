@@ -8,7 +8,7 @@ import {
   Activity, AlertTriangle, ArrowRight, BellRing, CheckCircle,
   Clock4, CreditCard, DollarSign, FolderPlus, FolderTree,
   HardDrive, Image as ImageIcon, Package, Plus, Search,
-  ShieldCheck, ShoppingBag, Star, Tag, TrendingDown,
+  ShieldCheck, ShoppingBag, Tag, TrendingDown,
   TrendingUp, Users, Zap, Sparkles, XCircle, Sun, Moon, BadgeCheck,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -168,13 +168,19 @@ export default function AdminDashboard() {
 
   const sparklineData = useMemo(() => {
     if (!data) return {};
+    // "products" không có sparkline: không có lịch sử số lượng sản phẩm theo
+    // ngày trong quá khứ để vẽ trend thật (trước đây bị lặp lại 1 giá trị —
+    // trông giống trend nhưng thực chất là đường phẳng giả).
+    const daily = data.dailyChart || [];
     return {
-      revenue:   (data.dailyChart    || []).slice(-7).map((x) => x.revenue      || 0),
-      orders:    (data.dailyChart    || []).slice(-7).map((x) => x.orders       || 0),
-      customers: (data.customerChart || []).map((x) => x.newCustomers || 0),
-      products:  (data.dailyChart    || []).slice(-7).map(() => totalProducts),
+      revenue:       daily.slice(-7).map((x) => x.revenue || 0),
+      orders:        daily.slice(-7).map((x) => x.orders  || 0),
+      customers:     (data.customerChart || []).map((x) => x.newCustomers || 0),
+      // Giá trị đơn TB mỗi ngày = doanh thu/số đơn ngày đó — suy ra trực tiếp
+      // từ dữ liệu thật, không cần thêm truy vấn backend.
+      avgOrderValue: daily.slice(-7).map((x) => (x.orders ? Math.round((x.revenue || 0) / x.orders) : 0)),
     };
-  }, [data, totalProducts]);
+  }, [data]);
 
   const funnelData = useMemo(() => {
     if (!data?.orderStats) return [];
@@ -212,8 +218,46 @@ export default function AdminDashboard() {
     return list;
   }, [data]);
 
+  const reviewSatisfactionPct = useMemo(() => {
+    const dist = data?.reviewStats?.dist || []; // [5★,4★,3★,2★,1★]
+    const total = dist.reduce((s, v) => s + v, 0);
+    if (!total) return 0;
+    const good = (dist[0] || 0) + (dist[1] || 0); // 5★ + 4★
+    return Math.round((good / total) * 100);
+  }, [data]);
+
   const heatmapData = data?.heatmap || [];
-  const heatmapInsight = data?.heatmapInsight || { peakLabel: '—', peakValue: 0, lowLabel: '—', lowValue: 0, avgPct: 0 };
+  // Giá trị mỗi ô là SỐ ĐƠN HÀNG thô (không phải %), cần chuẩn hoá theo ô cao nhất
+  // để tô màu đúng — trước đây code chia thẳng cho 100 nên hầu hết ô luôn nhạt.
+  const heatmapMax = useMemo(
+    () => Math.max(...heatmapData.flatMap((r) => r.values || [0]), 1),
+    [heatmapData]
+  );
+
+  // Backend chỉ trả lưới heatmap thô (day, values[]) — data.heatmapInsight không
+  // tồn tại (BE không tính field này), nên trước đây UI luôn hiện "—/0%".
+  // Tự tính đỉnh/đáy/trung bình ngay tại FE từ heatmapData thật.
+  const heatmapInsight = useMemo(() => {
+    if (!heatmapData.length) return { peakLabel: '—', peakValue: 0, lowLabel: '—', lowValue: 0, avgPct: 0 };
+    let peak = { day: '—', hi: 0, val: -1 };
+    let low = { day: '—', hi: 0, val: Infinity };
+    let total = 0, count = 0;
+    heatmapData.forEach((row) => {
+      (row.values || []).forEach((v, hi) => {
+        total += v; count += 1;
+        if (v > peak.val) peak = { day: row.day, hi, val: v };
+        if (v < low.val) low = { day: row.day, hi, val: v };
+      });
+    });
+    const maxVal = Math.max(peak.val, 1);
+    return {
+      peakLabel: `${peak.day} ${HEATMAP_HOURS[peak.hi] || ''}`.trim(),
+      peakValue: 100,
+      lowLabel: `${low.day} ${HEATMAP_HOURS[low.hi] || ''}`.trim(),
+      lowValue: low.val === Infinity ? 0 : low.val,
+      avgPct: count ? Math.round((total / count / maxVal) * 100) : 0,
+    };
+  }, [heatmapData]);
 
   const filteredVipCustomers = useMemo(() => {
     if (!data?.vipCustomers) return [];
@@ -323,11 +367,11 @@ export default function AdminDashboard() {
         <AdminStatCard title="Doanh Thu"          value={formatPrice(totalRevenue)}   icon={DollarSign}    color="sky"     growth={growth}  compareLabel="hôm qua"     sparklineData={sparklineData.revenue}                                    index={0} to="/admin/orders" />
         <AdminStatCard title="Đơn Hàng"           value={totalOrders}                 icon={ShoppingBag}   color="emerald" growth={cardGrowth.orders ?? 0}          compareLabel="tuần trước"  sparklineData={sparklineData.orders} index={1} to="/admin/orders" />
         <AdminStatCard title="Khách Hàng"         value={totalCustomers}              icon={Users}         color="violet"  growth={cardGrowth.customers ?? 0}      compareLabel="tháng trước" sparklineData={sparklineData.customers}                                  index={2} to="/admin/users" />
-        <AdminStatCard title="Sản Phẩm"           value={totalProducts}               icon={Package}       color="amber"   growth={cardGrowth.products ?? 0}       compareLabel="tháng trước" sparklineData={sparklineData.products}                                   index={3} to="/admin/products" />
-        <AdminStatCard title="Cảnh Báo Kho"       value={inventoryAlerts}             icon={AlertTriangle} color="orange"  growth={cardGrowth.inventoryAlerts}     compareLabel="ngày trước"  sparklineData={[12,10,14,8,11,9,7]}                                     index={4} to="/admin/products" />
-        <AdminStatCard title="Đơn Chờ Xử Lý"     value={pendingOrders}               icon={Clock4}        color="cyan"    growth={cardGrowth.pendingOrders}        compareLabel="hôm qua"     sparklineData={[18,16,19,21,20,18,17]}                                   index={5} to="/admin/orders" />
-        <AdminStatCard title="Tỷ Lệ Chuyển Đổi"  value={`${conversionRate}%`}        icon={TrendingUp}    color="emerald" growth={cardGrowth.conversionRate ?? 0} compareLabel="tuần trước"  sparklineData={[43,45,48,47,51,52,54]}                                   index={6} to="/admin/orders" />
-        <AdminStatCard title="Giá Trị Đơn TB"     value={formatPrice(avgOrderValue)}  icon={CreditCard}    color="purple"  growth={cardGrowth.avgOrderValue ?? 0}  compareLabel="tháng trước" sparklineData={[1100000,1300000,1200000,1400000,1500000,1450000,1520000]} index={7} to="/admin/orders" />
+        <AdminStatCard title="Sản Phẩm"           value={totalProducts}               icon={Package}       color="amber"   growth={cardGrowth.products ?? 0}       compareLabel="tháng trước" sparklineData={undefined}                       index={3} to="/admin/products" />
+        <AdminStatCard title="Cảnh Báo Kho"       value={inventoryAlerts}             icon={AlertTriangle} color="orange"  growth={cardGrowth.inventoryAlerts}     compareLabel="ngày trước"  sparklineData={undefined}                       index={4} to="/admin/products" />
+        <AdminStatCard title="Đơn Chờ Xử Lý"     value={pendingOrders}               icon={Clock4}        color="cyan"    growth={cardGrowth.pendingOrders}        compareLabel="hôm qua"     sparklineData={undefined}                       index={5} to="/admin/orders" />
+        <AdminStatCard title="Tỷ Lệ Chuyển Đổi"  value={`${conversionRate}%`}        icon={TrendingUp}    color="emerald" growth={cardGrowth.conversionRate ?? 0} compareLabel="tuần trước"  sparklineData={undefined}                       index={6} to="/admin/orders" />
+        <AdminStatCard title="Giá Trị Đơn TB"     value={formatPrice(avgOrderValue)}  icon={CreditCard}    color="purple"  growth={cardGrowth.avgOrderValue ?? 0}  compareLabel="tháng trước" sparklineData={sparklineData.avgOrderValue}     index={7} to="/admin/orders" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
@@ -557,7 +601,7 @@ export default function AdminDashboard() {
                     <div key={di} style={{ display: 'grid', gridTemplateColumns: '28px repeat(8, 1fr)', gap: '4px', marginBottom: '4px' }}>
                       <div className={`flex items-center text-[10px] font-black ${txt2}`}>{row.day}</div>
                       {row.values.map((val, ci) => {
-                        const intensity = val / 100;
+                        const intensity = heatmapMax ? val / heatmapMax : 0;
                         // violet → sky gradient by intensity
                         const r = Math.round(139 + (59  - 139) * intensity);
                         const g = Math.round(92  + (130 - 92)  * intensity);
@@ -568,10 +612,10 @@ export default function AdminDashboard() {
                             key={ci}
                             className="group relative cursor-pointer transition-transform duration-200 hover:z-10 hover:scale-125"
                             style={{ aspectRatio: '1', borderRadius: '6px', backgroundColor: `rgba(${r},${g},${b},${alpha})` }}
-                            title={`${row.day} ${HEATMAP_HOURS[ci]}: ${val}%`}
+                            title={`${row.day} ${HEATMAP_HOURS[ci]}: ${val} đơn`}
                           >
                             <div className={`pointer-events-none absolute bottom-full left-1/2 z-10 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded-lg px-2 py-1 text-[10px] font-bold opacity-0 shadow-lg transition-opacity group-hover:opacity-100 ${dark ? 'bg-slate-700 text-white' : 'bg-slate-800 text-white'}`}>
-                              {row.day} {HEATMAP_HOURS[ci]} · {val}%
+                              {row.day} {HEATMAP_HOURS[ci]} · {val} đơn
                             </div>
                           </div>
                         );
@@ -593,7 +637,7 @@ export default function AdminDashboard() {
             <div className={`flex items-center gap-3 rounded-xl border px-4 py-3 ${dark ? 'bg-violet-500/8 border-violet-500/15' : 'bg-violet-50 border-violet-100'}`}>
               <Zap size={14} className={dark ? 'text-violet-400' : 'text-violet-500'} />
               <p className={`text-xs ${dark ? 'text-violet-300' : 'text-violet-700'}`}>
-                <span className="font-bold">{heatmapInsight.peakLabel}</span> là khung giờ vàng — cường độ mua cao nhất, đạt <span className="font-bold">{heatmapInsight.peakValue}%</span> so với đỉnh
+                <span className="font-bold">{heatmapInsight.peakLabel}</span> là khung giờ vàng — cường độ mua cao nhất trong 90 ngày qua, với <span className="font-bold">{heatmapMax} đơn</span>
               </p>
             </div>
           </div>
@@ -655,7 +699,7 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center justify-between mb-3">
                 <h3 className={`text-xs font-bold uppercase tracking-[0.22em] ${txt4}`}>Doanh Thu Theo Danh Mục</h3>
-                <span className={`rounded-xl border px-2.5 py-1 text-xs font-semibold ${badgeDark}`}>6 tháng</span>
+                <span className={`rounded-xl border px-2.5 py-1 text-xs font-semibold ${badgeDark}`}>Toàn thời gian</span>
               </div>
               <div className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                 <div className="h-[240px] w-full">
@@ -745,20 +789,10 @@ export default function AdminDashboard() {
             <div className={`h-[220px] w-full rounded-2xl border p-3 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
               {chartsReady && (
               <ResponsiveContainer width="100%" height="100%" debounce={200}>
-                <AreaChart data={(data.customerChart || []).map((x) => ({
-                  ...x,
-                  returning: Math.round((x.newCustomers || 0) * 0.42),
-                  vip:       Math.round((x.newCustomers || 0) * 0.12),
-                }))} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
+                <AreaChart data={data.customerChart || []} margin={{ top: 4, right: 4, left: -20, bottom: 0 }}>
                   <defs>
                     <linearGradient id="custNewGrad" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%"  stopColor="#3B82F6" stopOpacity={0.35} /><stop offset="95%" stopColor="#3B82F6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="custRetGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#10B981" stopOpacity={0.28} /><stop offset="95%" stopColor="#10B981" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="custVipGrad" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%"  stopColor="#8B5CF6" stopOpacity={0.24} /><stop offset="95%" stopColor="#8B5CF6" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridStroke} />
@@ -766,9 +800,7 @@ export default function AdminDashboard() {
                   <YAxis stroke={axisStroke} fontSize={10} tickLine={false} axisLine={false} />
                   <Tooltip content={<ChartTooltip dark={dark} />} />
                   <Legend iconType="circle" iconSize={7} wrapperStyle={{ fontSize: 11, color: dark ? '#94a3b8' : '#64748b' }} />
-                  <Area type="monotone" dataKey="newCustomers" name="Mới"      stroke="#3B82F6" fill="url(#custNewGrad)" strokeWidth={2} dot={false} />
-                  <Area type="monotone" dataKey="returning"    name="Quay Lại" stroke="#10B981" fill="url(#custRetGrad)" strokeWidth={2} dot={false} />
-                  <Area type="monotone" dataKey="vip"          name="VIP"      stroke="#8B5CF6" fill="url(#custVipGrad)" strokeWidth={2} dot={false} />
+                  <Area type="monotone" dataKey="newCustomers" name="Khách Mới" stroke="#3B82F6" fill="url(#custNewGrad)" strokeWidth={2} dot={false} />
                 </AreaChart>
               </ResponsiveContainer>
               )}
@@ -830,7 +862,7 @@ export default function AdminDashboard() {
               <div>
                 <p className={`text-[10px] uppercase tracking-[0.24em] font-semibold ${txt4}`}>Đánh Giá Trung Bình</p>
                 <p className={`mt-1 text-2xl font-black ${txt1}`}><CountUp to={data.reviewStats?.total || 0} /></p>
-                <p className={`mt-0.5 text-sm ${txt3}`}>đánh giá · 96.8% hài lòng</p>
+                <p className={`mt-0.5 text-sm ${txt3}`}>đánh giá · {reviewSatisfactionPct}% hài lòng</p>
               </div>
             </div>
             <div className="space-y-3">
@@ -954,7 +986,7 @@ export default function AdminDashboard() {
                     <div className="flex items-center justify-between mb-2">
                       <div>
                         <p className={`font-semibold text-sm ${txt1}`}>{c.city}</p>
-                        <p className={`text-[11px] ${txt4}`}>#{idx + 1} khu vực · {c.ordercount || 0} đơn</p>
+                        <p className={`text-[11px] ${txt4}`}>#{idx + 1} khu vực · {c.orders || 0} đơn</p>
                       </div>
                       <span className={`font-black text-sm ${txt1}`}>{formatPrice(c.revenue || 0)}</span>
                     </div>
@@ -980,10 +1012,10 @@ export default function AdminDashboard() {
               return (data.brandRevenue || []).map((b) => {
                 const pct = Math.round(((b.revenue || 0) / maxBrandRev) * 100);
                 return (
-                  <div key={b.BrandName} className={`rounded-2xl border p-4 transition ${card} ${dark ? 'hover:border-sky-500/50' : 'hover:border-sky-400 hover:shadow-sm'}`}>
+                  <div key={b.name} className={`rounded-2xl border p-4 transition ${card} ${dark ? 'hover:border-sky-500/50' : 'hover:border-sky-400 hover:shadow-sm'}`}>
                     <div className="flex items-center justify-between gap-3 mb-2">
                       <div>
-                        <p className={`font-semibold text-sm ${txt1}`}>{b.BrandName}</p>
+                        <p className={`font-semibold text-sm ${txt1}`}>{b.name}</p>
                         <p className={`text-[11px] ${txt4}`}>Đóng Góp Doanh Thu</p>
                       </div>
                       <p className={`font-black text-sm shrink-0 ${txt1}`}>{formatPrice(b.revenue || 0)}</p>
@@ -1005,17 +1037,19 @@ export default function AdminDashboard() {
           <div className="space-y-4">
             <div className="grid gap-3 grid-cols-2">
               {[
-                { label: 'Khách Hàng Mới Hôm Nay', value: data.today?.newCustomers || 0,                                                                              icon: Users       },
-                { label: 'Đánh Giá Mới Hôm Nay',   value: data.today?.newReviews   || 0,                                                                              icon: Star        },
-                { label: 'Đơn Hàng Hôm Nay',       value: data.today?.newOrders    || 0,                                                                              icon: ShoppingBag },
-                { label: 'Thanh Toán Đã Ghi Nhận', value: data.paymentStats?.reduce((s, x) => s + (x.value || 0), 0) || 0,                                            icon: CreditCard  },
+                { label: 'Khách Hàng Mới Hôm Nay', value: data.newCustomersToday || 0,      icon: Users       },
+                { label: 'Đơn Hàng Hôm Nay',       value: data.todayStats?.orders || 0,     icon: ShoppingBag },
+                { label: 'Doanh Thu Hôm Nay',      value: data.todayStats?.revenue || 0,    icon: DollarSign, isMoney: true },
+                { label: 'Tài Khoản Đã Xác Thực',  value: data.verifiedRate || 0,           icon: ShieldCheck, isPercent: true },
               ].map((item) => (
                 <div key={item.label} className={`rounded-2xl border p-4 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                   <div className={`flex items-center gap-2 mb-2 ${txt3}`}>
                     <item.icon size={14} />
                     <span className={`text-[10px] uppercase tracking-[0.22em] font-semibold leading-tight`}>{item.label}</span>
                   </div>
-                  <p className={`text-3xl font-black ${txt1}`}><CountUp to={item.value} /></p>
+                  <p className={`text-3xl font-black ${txt1}`}>
+                    {item.isMoney ? formatPrice(item.value) : item.isPercent ? `${item.value}%` : <CountUp to={item.value} />}
+                  </p>
                 </div>
               ))}
             </div>
@@ -1091,25 +1125,24 @@ export default function AdminDashboard() {
           </div>
         </AdminPanel>
 
-        <AdminPanel title="Dòng Thời Gian" subtitle="Sự kiện hệ thống và thương mại gần đây">
+        <AdminPanel title="Dòng Thời Gian" subtitle="Đơn hàng gần đây theo trạng thái thật">
           <div className="space-y-3">
-            {data.recentOrders?.slice(0, 5).map((order, idx) => {
-              const icons = [ShoppingBag, Users, CreditCard, Star, Activity];
-              const Icon = icons[idx % icons.length];
-              const texts = [
-                `Đơn hàng mới #${order.OrderCode} đã nhận`,
-                `Khách hàng ${order.FullName} vừa đăng ký`,
-                `Thanh toán ${order.PaymentMethod || 'Online'} thành công`,
-                `Có đánh giá mới từ khách hàng`,
-                `Đơn hàng cập nhật: ${orderStatusLabel[order.Status]?.label || order.Status}`,
-              ];
+            {data.recentOrders?.slice(0, 5).map((order) => {
+              const statusIconMap = {
+                pending: Clock4, confirmed: ShoppingBag, shipping: Activity,
+                completed: CheckCircle, cancelled: XCircle,
+              };
+              const Icon = statusIconMap[order.Status] || Activity;
+              const status = orderStatusLabel[order.Status] || { label: order.Status };
               return (
-                <div key={idx} className={`flex items-start gap-3 rounded-2xl border p-3 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
+                <div key={order.OrderId} className={`flex items-start gap-3 rounded-2xl border p-3 ${card} transition-all duration-300 hover:shadow-md hover:-translate-y-0.5`}>
                   <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-sky-500 ${dark ? 'bg-slate-800' : 'bg-sky-50'}`}>
                     <Icon size={15} />
                   </div>
                   <div className="min-w-0">
-                    <p className={`text-sm font-semibold leading-snug ${txt1}`}>{texts[idx % 5]}</p>
+                    <p className={`text-sm font-semibold leading-snug ${txt1}`}>
+                      Đơn #{order.OrderCode} · {order.FullName} — {status.label}
+                    </p>
                     <p className={`mt-1 text-xs ${txt4}`}>{formatDate(order.CreatedAt)}</p>
                   </div>
                 </div>

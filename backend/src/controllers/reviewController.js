@@ -44,7 +44,7 @@ const mapReviewRow = (row) => {
 const updateProductRating = async (productId) => {
   await query(
     `UPDATE Products SET 
-      AverageRating = COALESCE((SELECT AVG(CAST(Rating AS DECIMAL(3,2))) FROM Reviews WHERE ProductId = @id AND IsApproved = 1), 0),
+      AverageRating = ISNULL((SELECT AVG(CAST(Rating AS DECIMAL(3,2))) FROM Reviews WHERE ProductId = @id AND IsApproved = 1), 0),
       ReviewCount = (SELECT COUNT(*) FROM Reviews WHERE ProductId = @id AND IsApproved = 1)
      WHERE ProductId = @id`,
     { id: productId }
@@ -168,8 +168,7 @@ export const createReview = async (req, res, next) => {
     try {
       result = await query(
         `INSERT INTO Reviews (ProductId, UserId, Rating, Comment, ImageUrls, IsApproved)
-         VALUES (@productId, @userId, @rating, @comment, @imageUrls, 1)
-         RETURNING *`,
+         OUTPUT INSERTED.* VALUES (@productId, @userId, @rating, @comment, @imageUrls, 1)`,
         {
           productId,
           userId: req.user.UserId,
@@ -182,8 +181,7 @@ export const createReview = async (req, res, next) => {
       if (dbErr.message?.includes('ImageUrls')) {
         result = await query(
           `INSERT INTO Reviews (ProductId, UserId, Rating, Comment, IsApproved)
-           VALUES (@productId, @userId, @rating, @comment, 1)
-           RETURNING *`,
+           OUTPUT INSERTED.* VALUES (@productId, @userId, @rating, @comment, 1)`,
           { productId, userId: req.user.UserId, rating, comment }
         );
       } else {
@@ -307,7 +305,7 @@ export const getReviews = async (req, res, next) => {
        JOIN Users u ON r.UserId = u.UserId
        ${where}
        ORDER BY r.CreatedAt DESC
-       LIMIT @limit OFFSET @offset`,
+       OFFSET @offset ROWS FETCH NEXT @limit ROWS ONLY`,
       params
     );
 

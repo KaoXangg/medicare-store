@@ -36,9 +36,11 @@ async function readSetting(key) {
 
 async function writeSetting(key, value) {
   await query(
-    `INSERT INTO SiteSettings (SettingKey, SettingValue, UpdatedAt)
-     VALUES (@key, @value, GETUTCDATE())
-     ON CONFLICT (SettingKey) DO UPDATE SET SettingValue = EXCLUDED.SettingValue, UpdatedAt = GETUTCDATE()`,
+    `MERGE SiteSettings AS t
+     USING (SELECT @key AS SettingKey, @value AS SettingValue) AS s
+     ON t.SettingKey = s.SettingKey
+     WHEN MATCHED THEN UPDATE SET SettingValue = s.SettingValue, UpdatedAt = GETUTCDATE()
+     WHEN NOT MATCHED THEN INSERT (SettingKey, SettingValue) VALUES (s.SettingKey, s.SettingValue);`,
     { key, value }
   );
 }

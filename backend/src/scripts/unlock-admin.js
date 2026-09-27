@@ -14,8 +14,8 @@ async function unlock() {
   await getPool();
   const result = await query(
     `UPDATE Users SET IsActive = 1, Role = 'admin', UpdatedAt = GETUTCDATE()
-     WHERE Email = @email
-     RETURNING UserId, Email, FullName, Role, IsActive`,
+     OUTPUT INSERTED.UserId, INSERTED.Email, INSERTED.FullName, INSERTED.Role, INSERTED.IsActive
+     WHERE Email = @email`,
     { email }
   );
   if (!result.recordset.length) {

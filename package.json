@@ -5,6 +5,7 @@
     "@tanstack/react-virtual": "^3.13.26",
     "framer-motion": "^12.40.0",
     "lucide-react": "^1.16.0",
+    "mssql": "^12.7.0",
     "multer": "^2.2.0"
   }
 }
