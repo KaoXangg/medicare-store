@@ -13,8 +13,7 @@ build/
 **/.env
 **/.env.*
 
-uploads/*
-!uploads/.gitkeep
+backend/uploads/
 
 *.log
 .DS_Store
